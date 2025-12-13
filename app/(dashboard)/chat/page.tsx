@@ -141,7 +141,7 @@ function ChatContent() {
           // Skip le prochain load car on a déjà les messages en mémoire
           skipNextChatLoad();
           setCurrentChatId(newChatId);
-          setChats((prev) => [result.chat as Chat, ...prev]);
+          setChats((prev) => [result.chat as unknown as Chat, ...prev]);
         } catch (error) {
           console.error("Failed to save messages:", error);
         }

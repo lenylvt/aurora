@@ -71,22 +71,23 @@ export function useChat(chatId: string | null) {
         const recentMessages = messages.slice(-20);
 
         // Préparer le contenu pour l'API
-        let apiContent: string | any[];
+        let apiContent: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
         const hasImages = files?.some((f) => f.type.startsWith("image/"));
 
         if (hasImages) {
-          apiContent = [];
+          const contentArray: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
           if (content.trim()) {
-            apiContent.push({ type: "text", text: content });
+            contentArray.push({ type: "text", text: content });
           }
           files?.forEach((file) => {
-            if (file.type.startsWith("image/")) {
-              apiContent.push({
+            if (file.type.startsWith("image/") && file.content) {
+              contentArray.push({
                 type: "image_url",
                 image_url: { url: file.content },
               });
             }
           });
+          apiContent = contentArray;
         } else {
           let messageContent = content;
           if (files && files.length > 0) {

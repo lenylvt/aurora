@@ -7,7 +7,7 @@
  * 3. Lancer: npx tsx scripts/setup-database.ts
  */
 
-import { Client, Databases, ID, Permission, Role } from "node-appwrite";
+import { Client, Databases, ID, Permission, Role, IndexType } from "node-appwrite";
 
 const PROJECT_ID = "693da1c50018f97338dc";
 const ENDPOINT = "https://fra.cloud.appwrite.io/v1";
@@ -162,7 +162,7 @@ async function setupDatabase() {
       databaseId,
       chatsCollection.$id,
       "userId_index",
-      "key",
+      IndexType.Key,
       ["userId"],
       ["ASC"]
     );
@@ -172,7 +172,7 @@ async function setupDatabase() {
       databaseId,
       chatsCollection.$id,
       "updatedAt_index",
-      "key",
+      IndexType.Key,
       ["updatedAt"],
       ["DESC"]
     );
@@ -255,7 +255,7 @@ async function setupDatabase() {
       databaseId,
       messagesCollection.$id,
       "chatId_index",
-      "key",
+      IndexType.Key,
       ["chatId"],
       ["ASC"]
     );
@@ -265,7 +265,7 @@ async function setupDatabase() {
       databaseId,
       messagesCollection.$id,
       "createdAt_index",
-      "key",
+      IndexType.Key,
       ["createdAt"],
       ["ASC"]
     );
