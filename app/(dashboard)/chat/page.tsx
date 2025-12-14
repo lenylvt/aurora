@@ -33,7 +33,7 @@ function ChatContent() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [greeting] = useState(getGreeting());
-  const { messages, sendMessage, isLoading, streamingMessage, lastFailedMessage, skipNextChatLoad } =
+  const { messages, sendMessage, isLoading, streamingMessage, toolCalls, lastFailedMessage, skipNextChatLoad } =
     useChat(currentChatId);
 
   useEffect(() => {

@@ -55,7 +55,23 @@ export function ToolCallsDisplay({ toolCalls, toolResults }: ToolCallsDisplayPro
           try {
             parsedOutput = JSON.parse(result.content);
             if (parsedOutput.error) {
+              // Construire un message d'erreur détaillé
               errorText = parsedOutput.error;
+
+              // Ajouter les détails si disponibles
+              if (parsedOutput.details) {
+                const details = parsedOutput.details;
+                if (details.message) {
+                  errorText = details.message;
+                }
+                if (details.response) {
+                  parsedOutput = {
+                    error: errorText,
+                    response: details.response,
+                    status: details.status,
+                  };
+                }
+              }
             } else if (parsedOutput.data) {
               parsedOutput = parsedOutput.data;
             }

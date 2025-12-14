@@ -14,6 +14,7 @@ import {
   executeTool,
 } from "@/lib/composio/client";
 
+export const runtime = "nodejs"; // Composio needs Node.js runtime
 export const maxDuration = 60;
 
 interface ToolCallRequest {

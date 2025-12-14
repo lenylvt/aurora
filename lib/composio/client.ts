@@ -107,15 +107,41 @@ export async function executeTool(
   }
 
   try {
+    console.log(`[Composio] Executing action: ${actionName}`);
+    console.log(`[Composio] Entity ID: ${entityId}`);
+    console.log(`[Composio] Parameters:`, JSON.stringify(params, null, 2));
+
     const entity = await composio.getEntity(entityId);
     const result = await entity.execute({
       actionName,
       params,
     });
+
+    console.log(`[Composio] Result:`, JSON.stringify(result, null, 2));
     return result;
-  } catch (error) {
-    console.error(`Error executing action ${actionName}:`, error);
-    throw error;
+  } catch (error: any) {
+    console.error(`[Composio] Error executing action ${actionName}:`, error);
+
+    // Extraire le maximum d'informations de l'erreur
+    const errorDetails = {
+      message: error.message,
+      status: error.status || error.statusCode,
+      response: error.response?.data || error.response,
+      details: error.details,
+      stack: error.stack,
+    };
+
+    console.error(`[Composio] Error details:`, JSON.stringify(errorDetails, null, 2));
+
+    // Créer une erreur enrichie
+    const enrichedError: any = new Error(
+      error.message || `Failed to execute ${actionName}`
+    );
+    enrichedError.details = errorDetails;
+    enrichedError.actionName = actionName;
+    enrichedError.params = params;
+
+    throw enrichedError;
   }
 }
 

@@ -2,12 +2,12 @@
   "$schema": "./types/mcp-server-config.schema.json",
   "servers": [
     {
-      "id": "gemibi",
+      "id": "gemini",
       "name": "Gemini",
-      "description": "Create image or video",
+      "description": "Generate images using Gemini 2.5 Flash (requires API key)",
       "toolkit": "gemini",
-      "requiresAuth": false,
-      "authType": "basic",
+      "requiresAuth": true,
+      "authType": "oauth2",
       "icon": "Gemini",
       "allowedTools": []
     }

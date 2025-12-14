@@ -61,7 +61,6 @@ function hasImages(messages: ChatMessage[]): boolean {
 
 export async function generateChatCompletion(
   messages: ChatMessage[],
-  stream: boolean = false,
   tools?: Tool[]
 ) {
   let lastError: any = null;
@@ -78,14 +77,14 @@ export async function generateChatCompletion(
         temperature: 0.7,
         max_tokens: 2048,
         top_p: 1,
-        stream,
+        stream: false,
         ...(tools && tools.length > 0 && { tools, tool_choice: "auto" }),
       });
 
       return { success: true, completion, model };
     } catch (error: any) {
       lastError = error;
-      console.error(`Model ${model} failed:`, error.message);
+      console.error(`[Groq] Model ${model} failed:`, error.message);
       // Continue to next model in fallback chain
       continue;
     }

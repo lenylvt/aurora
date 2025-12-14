@@ -12,6 +12,7 @@ export function useChat(chatId: string | null) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState("");
+  const [toolCalls, setToolCalls] = useState<any>(null);
   const [lastFailedMessage, setLastFailedMessage] = useState<{
     content: string;
     files?: ProcessedFile[];
