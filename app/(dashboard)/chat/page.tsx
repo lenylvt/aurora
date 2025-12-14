@@ -182,15 +182,15 @@ function ChatContent() {
         onDeleteChat={handleDeleteChat}
         onSignOut={handleSignOut}
       />
-      <SidebarInset className="flex flex-col">
+      <SidebarInset className="flex flex-col h-screen overflow-hidden">
         {/* Bouton flottant pour ouvrir sidebar */}
         <SidebarTriggerButton />
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto" ref={scrollRef}>
-          <div className="py-8 px-4 space-y-4 max-w-3xl mx-auto pb-32">
+        {/* Messages - zone scrollable uniquement */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden" ref={scrollRef}>
+          <div className="py-8 px-4 space-y-4 max-w-3xl mx-auto min-h-full">
             {messages.length === 0 && !streamingMessage && (
-              <div className="flex h-[70vh] items-center justify-center">
+              <div className="flex h-full items-center justify-center">
                 <div className="text-center space-y-3">
                   <h1 className="text-4xl font-bold">{greeting}</h1>
                   <p className="text-muted-foreground">
@@ -227,11 +227,14 @@ function ChatContent() {
                 </div>
               </div>
             )}
+
+            {/* Spacer pour l'input - ajuste selon la hauteur de l'input */}
+            <div className="h-32" aria-hidden="true" />
           </div>
         </div>
 
-        {/* Input fixe en bas */}
-        <div className="sticky bottom-0 w-full p-4 bg-gradient-to-t from-background via-background to-background/0 pointer-events-none">
+        {/* Input fixe en bas - utilise absolute au lieu de sticky */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background via-background/95 to-background/0 backdrop-blur-sm pointer-events-none">
           <div className="max-w-3xl mx-auto pointer-events-auto">
             <ChatInput
               onSend={handleSendMessage}

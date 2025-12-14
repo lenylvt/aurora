@@ -15,14 +15,14 @@ export const composio = process.env.COMPOSIO_API_KEY
  * Get all configured MCP servers
  */
 export function getConfiguredServers(): MCPServerConfig[] {
-  return mcpServersConfig.servers;
+  return mcpServersConfig.servers as MCPServerConfig[];
 }
 
 /**
  * Get a specific server configuration by ID
  */
 export function getServerConfig(serverId: string): MCPServerConfig | undefined {
-  return mcpServersConfig.servers.find((s) => s.id === serverId);
+  return mcpServersConfig.servers.find((s) => s.id === serverId) as MCPServerConfig | undefined;
 }
 
 /**
@@ -33,20 +33,16 @@ export async function getAvailableToolkits(userId: string): Promise<string[]> {
 
   try {
     const servers = getConfiguredServers();
-    
-    // Récupérer les comptes connectés
-    const connectedAccounts = await composio.connectedAccounts.list({
-      userIds: [userId],
-    });
+
+    // Récupérer les connexions de l'utilisateur
+    const connections = await getUserConnections(userId);
 
     const connectedToolkits = new Set<string>();
-    if (connectedAccounts?.items) {
-      connectedAccounts.items.forEach((account: any) => {
-        if (account.status === "ACTIVE") {
-          connectedToolkits.add(account.appUniqueId.toLowerCase());
-        }
-      });
-    }
+    connections.forEach((connection: any) => {
+      if (connection.status === "ACTIVE") {
+        connectedToolkits.add(connection.appName?.toLowerCase() || "");
+      }
+    });
 
     const availableToolkits = servers
       .filter((server) => {
@@ -111,14 +107,11 @@ export async function executeTool(
   }
 
   try {
-    const result = await composio.actions.execute({
+    const entity = await composio.getEntity(entityId);
+    const result = await entity.execute({
       actionName,
-      requestBody: {
-        input: params,
-        entityId,
-      },
+      params,
     });
-
     return result;
   } catch (error) {
     console.error(`Error executing action ${actionName}:`, error);
@@ -175,8 +168,12 @@ export async function getAuthUrl(
 
     const connection = await entity.initiateConnection({
       appName: toolkit,
-      redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/composio/callback`,
+      redirectUri: `${process.env.NEXT_PUBLIC_APP_URL}/api/composio/callback`,
     });
+
+    if (!connection.redirectUrl) {
+      throw new Error("No redirect URL returned");
+    }
 
     return connection.redirectUrl;
   } catch (error) {

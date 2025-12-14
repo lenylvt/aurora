@@ -126,15 +126,19 @@ export function useChat(chatId: string | null) {
         }
 
         // Call API with automatic tool detection
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+
         const response = await fetch("/api/chat", {
           method: "POST",
           credentials: "include",
-          headers: { 
+          headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${jwt}`,
           },
           body: JSON.stringify({ messages: apiMessages }),
-        });
+          signal: controller.signal,
+        }).finally(() => clearTimeout(timeoutId));
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => null);
@@ -153,10 +157,23 @@ export function useChat(chatId: string | null) {
           throw new Error(errorMessage);
         }
 
-        const data = await response.json();
-        const fullResponse = data.content || "";
+        // Lire le stream de réponse
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        let fullResponse = "";
 
-        setIsLoading(false);
+        if (reader) {
+          setIsLoading(false);
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            fullResponse += chunk;
+            setStreamingMessage(fullResponse);
+          }
+        }
 
         // Add assistant message
         const tempAssistantId = `temp-assistant-${Date.now()}`;
@@ -193,11 +210,25 @@ export function useChat(chatId: string | null) {
         // Sauvegarder pour restaurer
         setLastFailedMessage({ content, files });
 
-        toast.error(error.message || "Erreur lors de l'envoi du message", {
+        // Messages d'erreur plus clairs
+        let errorMessage = "Erreur lors de l'envoi du message";
+
+        if (error.name === "AbortError") {
+          errorMessage = "⏱️ La requête a pris trop de temps. Réessayez.";
+        } else if (error.message?.includes("Session expirée")) {
+          errorMessage = error.message;
+        } else if (error.message?.includes("Failed to fetch") || error.message?.includes("NetworkError")) {
+          errorMessage = "🌐 Problème de connexion. Vérifiez votre réseau.";
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+
+        toast.error(errorMessage, {
           duration: 5000,
         });
       } finally {
         setIsLoading(false);
+        setStreamingMessage("");
       }
     },
     [chatId, messages],

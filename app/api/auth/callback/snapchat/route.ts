@@ -4,7 +4,7 @@ import {
   exchangeCodeForTokens,
   getUserInfo,
 } from "@/lib/snapchat/oauth";
-import { createServerClient } from "@/lib/appwrite/server";
+import { createAdminClient } from "@/lib/appwrite/server";
 import { ID, Query } from "node-appwrite";
 import crypto from "crypto";
 
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
     const snapchatUser = userInfo.data.me;
 
     // Initialize Appwrite server client
-    const { users } = createServerClient();
+    const { users } = createAdminClient();
 
     // Create a unique email based on Snapchat external ID
     const email = `snapchat_${snapchatUser.externalId}@aurora.app`;

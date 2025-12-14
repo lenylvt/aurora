@@ -24,7 +24,7 @@ export default function ConnectionsPage() {
   const [loading, setLoading] = useState(true);
   const [connectingServer, setConnectingServer] = useState<string | null>(null);
 
-  const servers: MCPServerConfig[] = mcpServersConfig.servers;
+  const servers = mcpServersConfig.servers as MCPServerConfig[];
 
   useEffect(() => {
     fetchConnections();

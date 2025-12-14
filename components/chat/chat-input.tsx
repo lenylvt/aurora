@@ -42,6 +42,16 @@ export function ChatInput({ onSend, disabled, lastFailedMessage }: ChatInputProp
     }
   }, [message]);
 
+  // Gérer le focus sur mobile pour éviter le zoom
+  const handleFocus = () => {
+    // Sur mobile, scroller vers l'input quand il est focus
+    if (textareaRef.current && window.innerWidth < 768) {
+      setTimeout(() => {
+        textareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 300);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!message.trim() && processedFiles.length === 0) return;
     if (disabled || isProcessing) return;
@@ -139,7 +149,7 @@ export function ChatInput({ onSend, disabled, lastFailedMessage }: ChatInputProp
         </div>
       )}
 
-      <div className="relative flex items-end gap-2 bg-background border rounded-3xl shadow-lg p-2">
+      <div className="relative flex items-end gap-2 bg-background border rounded-3xl shadow-lg p-2 touch-none">
         <input
           type="file"
           ref={fileInputRef}
@@ -169,10 +179,12 @@ export function ChatInput({ onSend, disabled, lastFailedMessage }: ChatInputProp
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
+          onFocus={handleFocus}
           placeholder="Message..."
           className={cn(
             "min-h-[40px] max-h-[120px] resize-none",
-            "border-0 bg-transparent px-4 py-3 text-sm",
+            "border-0 bg-transparent px-4 py-3",
+            "text-base sm:text-sm", // 16px sur mobile pour éviter le zoom
             "focus-visible:ring-0 focus-visible:ring-offset-0"
           )}
           disabled={disabled || isProcessing}

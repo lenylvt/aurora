@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/appwrite/client";
-import { composio, getConfiguredServers } from "@/lib/composio/client";
+import { getUserConnections, getConfiguredServers } from "@/lib/composio/client";
 import type { MCPServerConfig } from "@/types/mcp-server";
 
 export async function GET(req: NextRequest) {
@@ -13,18 +13,16 @@ export async function GET(req: NextRequest) {
     // Get all configured servers from JSON
     const configuredServers = getConfiguredServers();
 
-    // List all connected accounts for the user
-    const connectedAccounts = await composio.connectedAccounts.list({
-      userIds: [user.$id],
-    });
+    // Get user connections
+    const connections = await getUserConnections(user.$id);
 
     // Create a map of connected toolkits
     const connectedToolkitMap = new Map<string, string>();
-    connectedAccounts.items.forEach((account: any) => {
-      if (account.status === "ACTIVE") {
+    connections.forEach((connection: any) => {
+      if (connection.status === "ACTIVE") {
         connectedToolkitMap.set(
-          account.appUniqueId.toLowerCase(),
-          account.id
+          connection.appName?.toLowerCase() || "",
+          connection.id
         );
       }
     });

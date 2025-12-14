@@ -23,14 +23,12 @@ export async function getCurrentUserServer() {
     const authorization = headersList.get("Authorization");
 
     if (!authorization || !authorization.startsWith("Bearer ")) {
-      console.error("No Authorization header found");
       return null;
     }
 
     const jwt = authorization.split("Bearer ")[1];
 
     if (!jwt) {
-      console.error("No JWT token found");
       return null;
     }
 
@@ -43,10 +41,8 @@ export async function getCurrentUserServer() {
     const account = new Account(client);
     const user = await account.get();
 
-    console.log("User authenticated via JWT:", user.email);
     return user;
   } catch (error) {
-    console.error("Error verifying JWT:", error);
     return null;
   }
 }

@@ -68,7 +68,7 @@ export function ToolCallsDisplay({ toolCalls, toolResults }: ToolCallsDisplayPro
           <Tool key={toolCall.id}>
             <ToolHeader
               title={toolCall.function.name}
-              type="tool-call" as any
+              type={"tool-call" as any}
               state={state}
             />
             <ToolContent>
