@@ -77,9 +77,7 @@ export async function POST(req: NextRequest) {
     // Si on a des outils disponibles, faire un premier appel pour détecter les tool calls
     if (tools.length > 0) {
       const result = await generateChatCompletion(
-        messagesWithSystem,
-        false,
-        tools
+        messagesWithSystem
       );
 
       if (!result.success || !result.completion) {
