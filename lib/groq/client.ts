@@ -1,7 +1,9 @@
-import Groq from "groq-sdk";
+import OpenAI from "openai";
 import type { GroqModel } from "@/types";
 
-const groq = new Groq({
+// Initialize OpenAI client with Groq base URL for OpenAI compatibility
+const client = new OpenAI({
+  baseURL: "https://api.groq.com/openai/v1",
   apiKey: process.env.GROQ_API_KEY,
 });
 
@@ -40,14 +42,8 @@ export interface ToolCall {
   };
 }
 
-export interface Tool {
-  type: "function";
-  function: {
-    name: string;
-    description: string;
-    parameters: Record<string, any>;
-  };
-}
+// Use OpenAI's native tool type for compatibility with Composio
+export type Tool = OpenAI.Chat.Completions.ChatCompletionTool;
 
 // Helper to check if messages contain images
 function hasImages(messages: ChatMessage[]): boolean {
@@ -71,26 +67,28 @@ export async function generateChatCompletion(
 
   for (const model of modelsToTry) {
     try {
-      const completion = await groq.chat.completions.create({
-        messages: messages as any,
+      // Using OpenAI client with Groq's OpenAI-compatible endpoint
+      const completion = await client.chat.completions.create({
+        messages: messages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
         model,
         temperature: 0.7,
         max_tokens: 2048,
         top_p: 1,
         stream: false,
-        ...(tools && tools.length > 0 && { tools, tool_choice: "auto" }),
+        ...(tools && tools.length > 0 && { 
+          tools,
+          tool_choice: "auto" as const 
+        }),
       });
 
       return { success: true, completion, model };
     } catch (error: any) {
       lastError = error;
-      console.error(`[Groq] Model ${model} failed:`, error.message);
-      // Continue to next model in fallback chain
+      console.error(`[Groq/OpenAI] Model ${model} failed:`, error.message);
       continue;
     }
   }
 
-  // All models failed
   return {
     success: false,
     error: lastError?.message || "All models failed",
@@ -111,20 +109,24 @@ export async function generateStreamingCompletion(
 
   for (const model of modelsToTry) {
     try {
-      const stream = await groq.chat.completions.create({
-        messages: messages as any,
+      // Streaming with OpenAI client
+      const stream = await client.chat.completions.create({
+        messages: messages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
         model,
         temperature: 0.7,
         max_tokens: 2048,
         top_p: 1,
         stream: true,
-        ...(tools && tools.length > 0 && { tools, tool_choice: "auto" }),
+        ...(tools && tools.length > 0 && { 
+          tools,
+          tool_choice: "auto" as const 
+        }),
       });
 
       return { success: true, stream, model };
     } catch (error: any) {
       lastError = error;
-      console.error(`Model ${model} streaming failed:`, error.message);
+      console.error(`[Groq/OpenAI] Model ${model} streaming failed:`, error.message);
       continue;
     }
   }
@@ -136,3 +138,6 @@ export async function generateStreamingCompletion(
     model: null,
   };
 }
+
+// Export client for use in other modules
+export { client as openaiClient };

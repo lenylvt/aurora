@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserConnections, disconnectAccount } from "@/lib/composio/client";
-import { getCurrentUser } from "@/lib/appwrite/client";
+import { getCurrentUserServer } from "@/lib/appwrite/server";
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await getCurrentUser();
+    const user = await getCurrentUserServer();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const user = await getCurrentUser();
+    const user = await getCurrentUserServer();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

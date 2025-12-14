@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type OpenAI from "openai";
 import {
   generateChatCompletion,
   generateStreamingCompletion,
@@ -14,7 +15,7 @@ import {
   executeTool,
 } from "@/lib/composio/client";
 
-export const runtime = "nodejs"; // Composio needs Node.js runtime
+export const runtime = "nodejs";
 export const maxDuration = 60;
 
 interface ToolCallRequest {
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
     let tools: Tool[] = [];
     let toolsDescription = "";
 
-    // Récupérer les outils si Composio est disponible
+    // Get tools if Composio is available
     try {
       if (composio) {
         toolkitsToUse =
@@ -52,7 +53,9 @@ export async function POST(req: NextRequest) {
             : await getAvailableToolkits(user.$id);
 
         if (toolkitsToUse.length > 0) {
-          tools = await getComposioTools(user.$id, toolkitsToUse);
+          // getComposioTools returns ComposioTools which is compatible with Tool[]
+          const composioTools = await getComposioTools(user.$id, toolkitsToUse);
+          tools = composioTools;
           toolsDescription = await getToolsDescriptions(
             toolkitsToUse,
             user.$id
@@ -68,17 +71,15 @@ export async function POST(req: NextRequest) {
         ? [
             {
               role: "system" as const,
-              content: `Vous êtes un assistant IA serviable.${toolsDescription}`,
+              content: `You are a helpful AI assistant.${toolsDescription}`,
             },
             ...messages,
           ]
         : messages;
 
-    // Si on a des outils disponibles, faire un premier appel pour détecter les tool calls
+    // If we have tools available, make a first call to detect tool calls
     if (tools.length > 0) {
-      const result = await generateChatCompletion(
-        messagesWithSystem
-      );
+      const result = await generateChatCompletion(messagesWithSystem, tools);
 
       if (!result.success || !result.completion) {
         return NextResponse.json(
@@ -87,10 +88,10 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const completion = result.completion as any;
+      const completion = result.completion;
       const message = completion.choices[0]?.message;
 
-      // Si on a des tool calls, les exécuter et streamer la réponse finale
+      // If we have tool calls, execute them and stream the final response
       if (message?.tool_calls && message.tool_calls.length > 0) {
         const toolResults = await Promise.all(
           message.tool_calls.map(async (toolCall: any) => {
@@ -130,12 +131,19 @@ export async function POST(req: NextRequest) {
           {
             role: "assistant" as const,
             content: message.content || "",
-            tool_calls: message.tool_calls,
+            tool_calls: message.tool_calls.map((tc: any) => ({
+              id: tc.id,
+              type: "function" as const,
+              function: {
+                name: tc.function.name,
+                arguments: tc.function.arguments,
+              },
+            })),
           },
           ...toolResults,
         ];
 
-        // Streamer la réponse finale après exécution des tools
+        // Stream the final response after tool execution
         const streamResult = await generateStreamingCompletion(newMessages);
 
         if (!streamResult.success || !streamResult.stream) {
@@ -147,7 +155,6 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        // Créer un stream pour la réponse
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
           async start(controller) {
@@ -175,7 +182,7 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Pas de tool calls, streamer la réponse quand même
+      // No tool calls, stream the response anyway
       const content = message?.content || "";
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
@@ -193,7 +200,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Pas d'outils disponibles, streamer directement
+    // No tools available, stream directly
     const streamResult = await generateStreamingCompletion(messagesWithSystem);
 
     if (!streamResult.success || !streamResult.stream) {

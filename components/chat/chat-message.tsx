@@ -1,13 +1,37 @@
 import { cn } from "@/lib/utils";
 import type { Message } from "@/types";
 import { MarkdownMessage } from "./markdown-message";
+import { useMemo } from "react";
+
+interface FileAttachment {
+  name: string;
+  type: string;
+}
 
 interface ChatMessageProps {
   message: Message;
 }
 
+// Helper function to safely parse files
+function parseFiles(files: unknown): FileAttachment[] {
+  if (!files) return [];
+  if (Array.isArray(files)) return files;
+  if (typeof files === 'string') {
+    try {
+      const parsed = JSON.parse(files);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 export function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === "user";
+  
+  // Safely parse files - handles both string and array formats
+  const files = useMemo(() => parseFiles(message.files), [message.files]);
 
   return (
     <div className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}>
@@ -20,9 +44,9 @@ export function ChatMessage({ message }: ChatMessageProps) {
         )}
       >
         {/* Fichiers attachés */}
-        {message.files && message.files.length > 0 && (
+        {files.length > 0 && (
           <div className="flex flex-wrap gap-1.5 pb-2 border-b border-border/30">
-            {message.files.map((file, idx) => (
+            {files.map((file, idx) => (
               <div
                 key={idx}
                 className={cn(

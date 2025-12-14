@@ -47,7 +47,6 @@
     "composio-core": "^0.5.39",
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
-    "groq-sdk": "^0.37.0",
     "highlight.js": "^11.11.1",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.561.0",

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/appwrite/client";
+import { getCurrentUserServer } from "@/lib/appwrite/server";
 import { getUserConnections, getConfiguredServers } from "@/lib/composio/client";
 import type { MCPServerConfig } from "@/types/mcp-server";
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await getCurrentUser();
+    const user = await getCurrentUserServer();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     const connections = await getUserConnections(user.$id);
 
     // Create a map of connected toolkits
-    const connectedToolkitMap = new Map<string, string>();
+    const connectedToolkitMap = new Map();
     connections.forEach((connection: any) => {
       if (connection.status === "ACTIVE") {
         connectedToolkitMap.set(

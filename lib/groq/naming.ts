@@ -1,10 +1,12 @@
-import Groq from "groq-sdk";
+import OpenAI from "openai";
 
-const groq = new Groq({
+// Initialize OpenAI client with Groq base URL
+const client = new OpenAI({
+  baseURL: "https://api.groq.com/openai/v1",
   apiKey: process.env.GROQ_API_KEY,
 });
 
-// Modèles à essayer dans l'ordre de préférence
+// Models to try in order of preference
 const TITLE_MODELS = [
   "llama-3.3-70b-versatile",
   "llama-3.1-8b-instant",
@@ -12,16 +14,16 @@ const TITLE_MODELS = [
 ];
 
 export async function generateConversationTitle(userMessage: string): Promise<string> {
-  // Limiter la longueur du message pour l'analyse
+  // Limit message length for analysis
   const messagePreview = userMessage.slice(0, 200);
 
   for (const model of TITLE_MODELS) {
     try {
-      const completion = await groq.chat.completions.create({
+      const completion = await client.chat.completions.create({
         messages: [
           {
             role: "system",
-            content: "Génère un titre court et précis (3-6 mots maximum) pour résumer cette conversation. Réponds UNIQUEMENT avec le titre, sans guillemets, sans point final.",
+            content: "Generate a short and precise title (3-6 words maximum) to summarize this conversation. Reply ONLY with the title, without quotes, without final period.",
           },
           {
             role: "user",
@@ -36,22 +38,21 @@ export async function generateConversationTitle(userMessage: string): Promise<st
       const title = completion.choices[0]?.message?.content?.trim();
 
       if (title && title.length > 0) {
-        // Nettoyer le titre : enlever guillemets, points finaux
+        // Clean the title: remove quotes, trailing periods
         const cleanTitle = title
           .replace(/^["'\`]+|["'\`]+$/g, "")
           .replace(/\.+$/, "")
           .slice(0, 60);
 
-        return cleanTitle || "Nouvelle conversation";
+        return cleanTitle || "New conversation";
       }
     } catch (error: any) {
-      console.error(`Error with model ${model}:`, error.message);
-      // Continuer avec le modèle suivant
+      console.error(`[Groq/OpenAI] Error with model ${model}:`, error.message);
       continue;
     }
   }
 
-  // Fallback : utiliser les premiers mots du message
+  // Fallback: use first words of the message
   const words = userMessage.split(" ").slice(0, 6).join(" ");
   return words.slice(0, 50) + (userMessage.length > 50 ? "..." : "");
 }
