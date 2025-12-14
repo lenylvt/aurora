@@ -1,0 +1,15 @@
+{
+  "$schema": "./types/mcp-server-config.schema.json",
+  "servers": [
+    {
+      "id": "gemibi",
+      "name": "Gemini",
+      "description": "Create image or video",
+      "toolkit": "gemini",
+      "requiresAuth": false,
+      "authType": "basic",
+      "icon": "Gemini",
+      "allowedTools": []
+    }
+  ]
+}

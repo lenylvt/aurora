@@ -6,6 +6,7 @@ import type { Message } from "@/types";
 import type { ProcessedFile } from "@/lib/files/processor";
 import { formatFileForAI } from "@/lib/files/processor";
 import { createMessage, getChatMessages } from "@/lib/appwrite/database";
+import { getSessionJWT } from "@/lib/appwrite/client";
 
 export function useChat(chatId: string | null) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -42,7 +43,11 @@ export function useChat(chatId: string | null) {
     async (
       content: string,
       files?: ProcessedFile[],
-      onSuccess?: (userContent: string, assistantContent: string, filesMeta?: any[]) => Promise<void>
+      onSuccess?: (
+        userContent: string,
+        assistantContent: string,
+        filesMeta?: any[],
+      ) => Promise<void>,
     ) => {
       if (!content.trim() && (!files || files.length === 0)) return;
 
@@ -71,11 +76,17 @@ export function useChat(chatId: string | null) {
         const recentMessages = messages.slice(-20);
 
         // Préparer le contenu pour l'API
-        let apiContent: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+        let apiContent:
+          | string
+          | Array<{ type: string; text?: string; image_url?: { url: string } }>;
         const hasImages = files?.some((f) => f.type.startsWith("image/"));
 
         if (hasImages) {
-          const contentArray: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
+          const contentArray: Array<{
+            type: string;
+            text?: string;
+            image_url?: { url: string };
+          }> = [];
           if (content.trim()) {
             contentArray.push({ type: "text", text: content });
           }
@@ -108,10 +119,20 @@ export function useChat(chatId: string | null) {
           { role: "user" as const, content: apiContent },
         ];
 
-        // Call streaming API
+        // Get JWT token for authentication
+        const jwt = await getSessionJWT();
+        if (!jwt) {
+          throw new Error("Session expirée. Veuillez vous reconnecter.");
+        }
+
+        // Call API with automatic tool detection
         const response = await fetch("/api/chat", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${jwt}`,
+          },
           body: JSON.stringify({ messages: apiMessages }),
         });
 
@@ -125,31 +146,17 @@ export function useChat(chatId: string | null) {
             errorMessage.includes("TPM")
           ) {
             throw new Error(
-              "⏰ Limite de requêtes atteinte. Attends 1 minute ou réduis la taille."
+              "⏰ Limite de requêtes atteinte. Attends 1 minute ou réduis la taille.",
             );
           }
 
           throw new Error(errorMessage);
         }
 
-        // Stream the response
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-        let fullResponse = "";
+        const data = await response.json();
+        const fullResponse = data.content || "";
 
-        if (reader) {
-          // Dès qu'on commence à streamer, on arrête le loader
-          setIsLoading(false);
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value);
-            fullResponse += chunk;
-            setStreamingMessage(fullResponse);
-          }
-        }
+        setIsLoading(false);
 
         // Add assistant message
         const tempAssistantId = `temp-assistant-${Date.now()}`;
@@ -174,7 +181,7 @@ export function useChat(chatId: string | null) {
               name: f.name,
               type: f.type,
               size: f.size,
-            }))
+            })),
           );
         }
       } catch (error: any) {
@@ -193,7 +200,7 @@ export function useChat(chatId: string | null) {
         setIsLoading(false);
       }
     },
-    [chatId, messages]
+    [chatId, messages],
   );
 
   const skipNextChatLoad = useCallback(() => {

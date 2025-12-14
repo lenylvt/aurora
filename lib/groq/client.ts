@@ -16,8 +16,11 @@ const MODELS: GroqModel[] = [
 const VISION_MODEL: GroqModel = "meta-llama/llama-4-scout-17b-16e-instruct";
 
 export interface ChatMessage {
-  role: "system" | "user" | "assistant";
+  role: "system" | "user" | "assistant" | "tool";
   content: string | MessageContent[];
+  tool_calls?: ToolCall[];
+  tool_call_id?: string;
+  name?: string;
 }
 
 export interface MessageContent {
@@ -25,6 +28,24 @@ export interface MessageContent {
   text?: string;
   image_url?: {
     url: string;
+  };
+}
+
+export interface ToolCall {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+export interface Tool {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, any>;
   };
 }
 
@@ -40,7 +61,8 @@ function hasImages(messages: ChatMessage[]): boolean {
 
 export async function generateChatCompletion(
   messages: ChatMessage[],
-  stream: boolean = false
+  stream: boolean = false,
+  tools?: Tool[]
 ) {
   let lastError: any = null;
 
@@ -57,6 +79,7 @@ export async function generateChatCompletion(
         max_tokens: 2048,
         top_p: 1,
         stream,
+        ...(tools && tools.length > 0 && { tools, tool_choice: "auto" }),
       });
 
       return { success: true, completion, model };
@@ -77,7 +100,10 @@ export async function generateChatCompletion(
   };
 }
 
-export async function generateStreamingCompletion(messages: ChatMessage[]) {
+export async function generateStreamingCompletion(
+  messages: ChatMessage[],
+  tools?: Tool[]
+) {
   let lastError: any = null;
 
   // Use Vision model if messages contain images
@@ -93,6 +119,7 @@ export async function generateStreamingCompletion(messages: ChatMessage[]) {
         max_tokens: 2048,
         top_p: 1,
         stream: true,
+        ...(tools && tools.length > 0 && { tools, tool_choice: "auto" }),
       });
 
       return { success: true, stream, model };

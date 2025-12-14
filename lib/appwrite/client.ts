@@ -19,6 +19,17 @@ export async function getCurrentUser() {
   }
 }
 
+// Get current session JWT token
+export async function getSessionJWT() {
+  try {
+    const jwt = await account.createJWT();
+    return jwt.jwt;
+  } catch (error) {
+    console.error("Error creating JWT:", error);
+    return null;
+  }
+}
+
 // Sign in with email
 export async function signIn(email: string, password: string) {
   try {
