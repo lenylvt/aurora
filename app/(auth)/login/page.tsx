@@ -38,15 +38,22 @@ function LoginForm() {
 
     if (snapchatAuth === "success") {
       setSnapchatLoading(true);
-      // Auto-login will be handled by cookie-based authentication
+      // Auto-login with credentials from Snapchat auth
       fetch("/api/auth/snapchat/login", {
         method: "POST",
         credentials: "include",
       })
         .then((res) => res.json())
-        .then((data) => {
-          if (data.success) {
-            router.push("/chat");
+        .then(async (data) => {
+          if (data.success && data.email && data.password) {
+            // Use client-side Appwrite SDK to create session
+            const result = await signIn(data.email, data.password);
+            if (result.success) {
+              router.push("/chat");
+            } else {
+              setError("Échec de la création de session");
+              setSnapchatLoading(false);
+            }
           } else {
             setError("Échec de la connexion automatique");
             setSnapchatLoading(false);
