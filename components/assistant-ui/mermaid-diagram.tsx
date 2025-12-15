@@ -170,10 +170,10 @@ const FullscreenModal: FC<{
         setScale((s) => Math.min(Math.max(s * factor, 0.05), 10));
     }, []);
 
-    // Drag
-    const onMouseDown = useCallback(
-        (e: React.MouseEvent) => {
-            if (e.button !== 0) return;
+    // Drag (souris + tactile)
+    const onPointerDown = useCallback(
+        (e: React.PointerEvent) => {
+            if (e.button !== 0 && e.pointerType === "mouse") return;
             e.preventDefault();
             setIsDragging(true);
             dragStart.current = {
@@ -186,8 +186,8 @@ const FullscreenModal: FC<{
         [position]
     );
 
-    const onMouseMove = useCallback(
-        (e: React.MouseEvent) => {
+    const onPointerMove = useCallback(
+        (e: React.PointerEvent) => {
             if (!isDragging) return;
             setPosition({
                 x: dragStart.current.posX + (e.clientX - dragStart.current.x),
@@ -197,7 +197,7 @@ const FullscreenModal: FC<{
         [isDragging]
     );
 
-    const onMouseUp = useCallback(() => setIsDragging(false), []);
+    const onPointerUp = useCallback(() => setIsDragging(false), []);
 
     return createPortal(
         <div
@@ -206,8 +206,8 @@ const FullscreenModal: FC<{
                 width: '100vw',
                 height: '100dvh',
             }}
-            onMouseUp={onMouseUp}
-            onMouseLeave={onMouseUp}
+            onPointerUp={onPointerUp}
+            onPointerLeave={onPointerUp}
         >
             {/* Toolbar flottante */}
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full shadow-lg px-2 py-1">
@@ -264,8 +264,8 @@ const FullscreenModal: FC<{
                     "flex-1 overflow-hidden flex items-center justify-center select-none",
                     isDragging ? "cursor-grabbing" : "cursor-grab"
                 )}
-                onMouseDown={onMouseDown}
-                onMouseMove={onMouseMove}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
                 onWheel={onWheel}
             >
                 {!svg && !error && (
@@ -391,7 +391,7 @@ export const MermaidDiagram: FC<MermaidDiagramProps> = ({ code }) => {
             <div className="my-4 group relative">
                 {/* Wrapper scrollable pour mobile - touch-action permet le scroll natif */}
                 <div
-                    className="overflow-auto overscroll-contain rounded-lg border bg-white dark:bg-zinc-900 touch-pan-x touch-pan-y"
+                    className="overflow-auto overscroll-contain rounded-lg border bg-white dark:bg-zinc-900"
                     style={{
                         WebkitOverflowScrolling: 'touch',
                         maxHeight: '70vh',
@@ -400,8 +400,7 @@ export const MermaidDiagram: FC<MermaidDiagramProps> = ({ code }) => {
                 >
                     <div
                         ref={containerRef}
-                        className="p-4 min-w-max [&_svg]:block pointer-events-none"
-                        style={{ touchAction: 'none' }}
+                        className="p-4 min-w-max [&_svg]:block [&_svg_a]:pointer-events-none"
                         dangerouslySetInnerHTML={{ __html: svg! }}
                     />
                 </div>
