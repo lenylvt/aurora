@@ -9,18 +9,50 @@ import {
   useIsMarkdownCodeBlock,
 } from "@assistant-ui/react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 import { type FC, memo, useState } from "react";
 import { CheckIcon, CopyIcon } from "lucide-react";
 
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
+import { MermaidDiagram } from "@/components/assistant-ui/mermaid-diagram";
 import { cn } from "@/lib/utils";
+
+// Preprocessing function to normalize LaTeX delimiters
+// Converts various LaTeX formats to standard $...$ and $$...$$ syntax for remark-math
+function normalizeCustomMathTags(input: string): string {
+  let result = input;
+
+  // Convert [/math]...[/math] to $$...$$
+  result = result.replace(/\[\/math\]([\s\S]*?)\[\/math\]/g, (_, content) => `$$${content.trim()}$$`);
+
+  // Convert [/inline]...[/inline] to $...$
+  result = result.replace(/\[\/inline\]([\s\S]*?)\[\/inline\]/g, (_, content) => `$${content.trim()}$`);
+
+  // Convert \( ... \) to $...$ (inline math)
+  // Use non-greedy match and ensure we have complete pairs
+  result = result.replace(/\\\(([\s\S]+?)\\\)/g, (_, content) => `$${content}$`);
+
+  // Convert \[ ... \] to $$...$$ (block math)
+  // Use non-greedy match and ensure we have complete pairs
+  result = result.replace(/\\\[([\s\S]+?)\\\]/g, (_, content) => `$$${content}$$`);
+
+  return result;
+}
 
 const MarkdownTextImpl = () => {
   return (
     <MarkdownTextPrimitive
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[rehypeKatex]}
+      preprocess={normalizeCustomMathTags}
       className="aui-md"
       components={defaultComponents}
+      componentsByLanguage={{
+        mermaid: {
+          SyntaxHighlighter: MermaidDiagram,
+        },
+      }}
     />
   );
 };
@@ -217,9 +249,22 @@ const defaultComponents = memoizeMarkdownComponents({
       <code
         className={cn(
           !isCodeBlock &&
-            "aui-md-inline-code rounded border bg-muted font-semibold",
+          "aui-md-inline-code rounded border bg-muted font-semibold",
           className,
         )}
+        {...props}
+      />
+    );
+  },
+  img: function Img({ src, alt, ...props }) {
+    // Don't render if src is empty to avoid browser warning
+    if (!src) return null;
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt={alt || ""}
+        className="my-4 max-w-full rounded-lg"
         {...props}
       />
     );

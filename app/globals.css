@@ -82,6 +82,7 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
     /* Empêcher le scroll sur body pour mobile */
@@ -93,12 +94,15 @@
 
   /* Cacher les scrollbars mais garder la fonctionnalité */
   * {
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+    -ms-overflow-style: none;
+    /* IE and Edge */
   }
 
   *::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
+    display: none;
+    /* Chrome, Safari, Opera */
   }
 
   /* Support pour les appareils tactiles */
@@ -115,7 +119,8 @@
   }
 
   /* Empêcher le bounce sur iOS */
-  html, body {
+  html,
+  body {
     overscroll-behavior-y: none;
   }
 
@@ -126,4 +131,22 @@
       backdrop-filter: blur(24px);
     }
   }
+}
+
+/* Styles KaTeX pour une meilleure intégration */
+.katex-display {
+  @apply my-4 overflow-x-auto py-2;
+}
+
+.katex {
+  @apply text-base;
+}
+
+.aui-md .katex-display>.katex {
+  @apply text-lg;
+}
+
+/* Améliorer le contraste des formules en mode sombre */
+.dark .katex {
+  color: hsl(var(--foreground));
 }
