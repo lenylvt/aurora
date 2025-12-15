@@ -21,13 +21,53 @@ const MODELS = [
 ] as const;
 
 // Vision model for images
-const VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+const VISION_MODEL = "meta-llama/llama-4-maverick-17b-128e-instruct";
 
-// Helper to check if messages contain images
+// Helper to recursively remove reasoning from messages (not supported by vision model)
+function removeReasoning(obj: any): any {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj
+      .filter((item: any) => !(item && typeof item === 'object' && item.type === 'reasoning'))
+      .map(removeReasoning);
+  }
+
+  const { reasoning, ...rest } = obj;
+  const cleaned: Record<string, any> = {};
+
+  for (const key of Object.keys(rest)) {
+    cleaned[key] = removeReasoning(rest[key]);
+  }
+
+  return cleaned;
+}
+
+// Helper to check if messages contain images (AI SDK v5 format)
 function hasImages(messages: any[]): boolean {
   return messages.some((msg) => {
+    // AI SDK v5: images are in 'parts' array with type 'file' and mediaType starting with 'image/'
+    if (msg.parts && Array.isArray(msg.parts)) {
+      const hasImagePart = msg.parts.some((part: any) =>
+        (part.type === "file" && part.mediaType?.startsWith("image/")) ||
+        part.type === "image"
+      );
+      if (hasImagePart) {
+        return true;
+      }
+    }
+    // Legacy format: images in 'content' array
     if (msg.content && Array.isArray(msg.content)) {
-      return msg.content.some((c: any) => c.type === "image" || c.type === "image_url");
+      const hasImageContent = msg.content.some((c: any) =>
+        c.type === "image" ||
+        c.type === "image_url" ||
+        (c.type === "file" && c.mediaType?.startsWith("image/"))
+      );
+      if (hasImageContent) {
+        return true;
+      }
     }
     return false;
   });
@@ -64,12 +104,8 @@ export async function POST(req: NextRequest) {
         if (enabledToolkits.length > 0) {
           tools = await getComposioTools(user.$id, {
             toolkits: enabledToolkits,
-            limit: 50, // Get more tools for multiple toolkits
+            limit: 50,
           });
-
-          if (Object.keys(tools).length > 0) {
-            console.log(`[Chat API] Loaded ${Object.keys(tools).length} Composio tools:`, Object.keys(tools).slice(0, 10));
-          }
         }
       } catch (toolError) {
         console.warn("[Chat API] Composio tools not available:", toolError);
@@ -84,7 +120,12 @@ export async function POST(req: NextRequest) {
     const selectedModel = containsImages ? VISION_MODEL : MODELS[0];
 
     // Convert messages to model messages format
-    const modelMessages = convertToModelMessages(optimizedMessages);
+    let modelMessages = convertToModelMessages(optimizedMessages);
+
+    // Remove reasoning only for vision model (not supported)
+    if (containsImages) {
+      modelMessages = modelMessages.map(removeReasoning);
+    }
 
     // Build system prompt with available tools
     const toolNames = Object.keys(tools);
@@ -110,7 +151,9 @@ A["Concept"] --> B["Sous-concept"]
 \`\`\`
 ⚠️ Guillemets obligatoires si caractères spéciaux: A["Texte (date)"]
 
-Images/vidéos: les URLs directes s'affichent automatiquement.
+Images/vidéos: TOUJOURS formater en markdown pour affichage automatique.
+- Image: ![description](url)
+- Vidéo: [Voir la vidéo](url)
 
 🚫 À ÉVITER
 - Les intros du genre "Excellente question !"
@@ -140,7 +183,6 @@ Utilise ces outils quand c'est pertinent pour répondre aux demandes de l'utilis
     }
 
     // Stream the response using Vercel AI SDK
-    // The Composio Vercel provider automatically handles tool execution
     const result = streamText({
       model: groq(selectedModel),
       system: systemPrompt,
