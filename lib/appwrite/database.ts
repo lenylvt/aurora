@@ -139,20 +139,22 @@ export async function createOrUpdateMessage(
   }
 }
 
-export async function getChatMessages(chatId: string) {
+export async function getChatMessages(chatId: string, limit: number = 50) {
   try {
     const response = await databases.listDocuments(
       appwriteConfig.databaseId,
       appwriteConfig.collections.messages,
       [
         Query.equal("chatId", chatId),
-        Query.orderAsc("createdAt"),
-        Query.limit(1000),
+        Query.orderDesc("createdAt"), // Récupère les plus récents d'abord
+        Query.limit(limit),
       ]
     );
+    // Inverse l'ordre pour avoir chronologique (ancien -> récent)
+    const messages = (response.documents as unknown as Message[]).reverse();
     return {
       success: true,
-      messages: response.documents as unknown as Message[],
+      messages,
     };
   } catch (error: any) {
     return { success: false, error: error.message, messages: [] };

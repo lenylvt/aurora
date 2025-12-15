@@ -4,6 +4,7 @@ import { groq } from "@ai-sdk/groq";
 import { getCurrentUserServer } from "@/lib/appwrite/server";
 import { getComposioTools, isComposioAvailable } from "@/lib/composio/client";
 import { getEnabledToolkitSlugs } from "@/lib/composio/config";
+import { optimizeMessageContext } from "@/lib/groq/context";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -75,12 +76,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Optimize message context to reduce API usage
+    const optimizedMessages = optimizeMessageContext(messages);
+
     // Select model based on whether we have images
-    const containsImages = hasImages(messages);
+    const containsImages = hasImages(optimizedMessages);
     const selectedModel = containsImages ? VISION_MODEL : MODELS[0];
 
     // Convert messages to model messages format
-    const modelMessages = convertToModelMessages(messages);
+    const modelMessages = convertToModelMessages(optimizedMessages);
 
     // Build system prompt with available tools
     const toolNames = Object.keys(tools);
@@ -117,7 +121,7 @@ Utilise ces outils quand c'est pertinent pour répondre aux demandes de l'utilis
 
     // Return the UI message stream response
     return result.toUIMessageStreamResponse({
-      originalMessages: messages,
+      originalMessages: optimizedMessages,
       onError: (error) => {
         console.error("[Chat API] Stream error:", error);
         if (error == null) {

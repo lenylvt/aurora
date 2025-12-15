@@ -14,8 +14,8 @@ const TITLE_MODELS = [
 ];
 
 export async function generateConversationTitle(userMessage: string): Promise<string> {
-  // Limit message length for analysis
-  const messagePreview = userMessage.slice(0, 200);
+  // Limit message length for analysis (100 chars is enough for title generation)
+  const messagePreview = userMessage.slice(0, 100);
 
   for (const model of TITLE_MODELS) {
     try {
@@ -52,7 +52,8 @@ export async function generateConversationTitle(userMessage: string): Promise<st
     }
   }
 
-  // Fallback: use first words of the message
-  const words = userMessage.split(" ").slice(0, 6).join(" ");
-  return words.slice(0, 50) + (userMessage.length > 50 ? "..." : "");
+  // Fallback: use first words of the message as title
+  const words = userMessage.trim().split(/\s+/).slice(0, 5).join(" ");
+  const fallbackTitle = words.slice(0, 40);
+  return fallbackTitle + (userMessage.length > 40 ? "..." : "") || "Nouvelle conversation";
 }
