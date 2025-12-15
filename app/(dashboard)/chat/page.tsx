@@ -1,40 +1,32 @@
 "use client";
 
-import { useEffect, useRef, useState, Suspense } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ChatMessage } from "@/components/chat/chat-message";
-import { ChatInput } from "@/components/chat/chat-input";
+import { Thread } from "@/components/assistant-ui/thread";
+import { ChatRuntimeProvider } from "@/components/chat/runtime-provider";
+import { ToolkitsProvider } from "@/components/chat/toolkits-provider";
 import { AppSidebar } from "@/components/chat/app-sidebar";
-import { useChat } from "@/hooks/useChat";
-import { getCurrentUser } from "@/lib/appwrite/client";
-import { signOut } from "@/lib/appwrite/client";
+import { getCurrentUser, signOut } from "@/lib/appwrite/client";
 import {
-  createChat,
   getUserChats,
   deleteChat,
-  createMessage,
+  getChatMessages,
 } from "@/lib/appwrite/database";
-import type { Chat, User } from "@/types";
+import type { Chat, User, Message } from "@/types";
 import { toast } from "sonner";
-import type { ProcessedFile } from "@/lib/files/processor";
 import { SidebarProvider, SidebarInset, useSidebar } from "@/components/ui/sidebar";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-function getGreeting() {
-  // Éviter l'hydration error en retournant un message générique
-  return "Bonjour";
-}
-
 function ChatContent() {
   const router = useRouter();
-  const scrollRef = useRef<HTMLDivElement>(null);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);
   const [user, setUser] = useState<User | null>(null);
-  const [greeting] = useState(getGreeting());
-  const { messages, sendMessage, isLoading, streamingMessage, lastFailedMessage, skipNextChatLoad } =
-    useChat(currentChatId);
+  const [loadedMessages, setLoadedMessages] = useState<Message[]>([]);
+  // Clé unique pour forcer le remontage du ChatRuntimeProvider
+  const [conversationKey, setConversationKey] = useState<number>(Date.now());
 
   useEffect(() => {
     getCurrentUser().then((userData) => {
@@ -54,19 +46,6 @@ function ChatContent() {
     }
   };
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      const scrollElement = scrollRef.current;
-      // Smooth scroll to bottom
-      setTimeout(() => {
-        scrollElement.scrollTo({
-          top: scrollElement.scrollHeight,
-          behavior: "smooth"
-        });
-      }, 100);
-    }
-  }, [messages.length, streamingMessage]);
-
   const handleSignOut = async () => {
     await signOut();
     router.push("/login");
@@ -74,10 +53,24 @@ function ChatContent() {
 
   const handleNewChat = () => {
     setCurrentChatId(null);
+    setLoadedMessages([]);
+    // Forcer un nouveau provider pour reset le thread
+    setConversationKey(Date.now());
   };
 
-  const handleChatSelect = (chatId: string) => {
-    setCurrentChatId(chatId);
+  const handleChatSelect = async (chatId: string) => {
+    if (chatId !== currentChatId) {
+      setCurrentChatId(chatId);
+      // Charger les messages existants
+      const result = await getChatMessages(chatId);
+      if (result.success) {
+        setLoadedMessages(result.messages);
+      } else {
+        setLoadedMessages([]);
+      }
+      // Forcer un nouveau provider pour charger la nouvelle conversation
+      setConversationKey(Date.now());
+    }
   };
 
   const handleDeleteChat = async (chatId: string) => {
@@ -85,7 +78,10 @@ function ChatContent() {
     if (result.success) {
       setChats((prev) => prev.filter((c) => c.$id !== chatId));
       if (currentChatId === chatId) {
+        // Reset to new conversation state
         setCurrentChatId(null);
+        setLoadedMessages([]);
+        setConversationKey(Date.now());
       }
       toast.success("Conversation supprimée");
     } else {
@@ -93,191 +89,51 @@ function ChatContent() {
     }
   };
 
-  const handleSendMessage = async (content: string, files?: ProcessedFile[]) => {
-    if (!user) return;
-
-    let activeChatId = currentChatId;
-    let isNewChat = !activeChatId;
-
-    // Créer un nouveau chat si nécessaire
-    if (isNewChat) {
-      // Envoyer d'abord le message optimistiquement
-      await sendMessage(content, files, async (userContent, assistantContent, filesMeta) => {
-        // Créer le chat après avoir affiché les messages
-        let title = content.slice(0, 50) + (content.length > 50 ? "..." : "");
-
-        try {
-          const titleResponse = await fetch("/api/generate-title", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: content }),
-          });
-
-          if (titleResponse.ok) {
-            const titleData = await titleResponse.json();
-            if (titleData.title) {
-              title = titleData.title;
-            }
-          }
-        } catch (error) {
-          console.error("Failed to generate title:", error);
-        }
-
-        const result = await createChat(user.$id, title);
-
-        if (!result.success || !result.chat) {
-          toast.error("Erreur lors de la création");
-          return;
-        }
-
-        const newChatId = result.chat.$id;
-
-        // Sauvegarder les messages en arrière-plan
-        try {
-          await createMessage(newChatId, "user", userContent, filesMeta);
-          await createMessage(newChatId, "assistant", assistantContent);
-
-          // Mettre à jour l'état après sauvegarde
-          // Skip le prochain load car on a déjà les messages en mémoire
-          skipNextChatLoad();
-          setCurrentChatId(newChatId);
-          setChats((prev) => [result.chat as unknown as Chat, ...prev]);
-        } catch (error) {
-          console.error("Failed to save messages:", error);
-        }
-      });
-    } else {
-      // Chat existant - comportement normal
-      await sendMessage(content, files, async (userContent, assistantContent, filesMeta) => {
-        if (!activeChatId) return;
-
-        // Sauvegarder en arrière-plan
-        try {
-          await createMessage(activeChatId, "user", userContent, filesMeta);
-          await createMessage(activeChatId, "assistant", assistantContent);
-
-          setChats((prev) =>
-            prev.map((c) =>
-              c.$id === activeChatId
-                ? { ...c, updatedAt: new Date().toISOString() }
-                : c
-            )
-          );
-        } catch (error) {
-          console.error("Failed to save messages:", error);
-        }
-      });
+  const handleChatCreated = async (chatId: string) => {
+    setCurrentChatId(chatId);
+    // Recharger la liste des chats
+    if (user) {
+      await loadChats(user.$id);
     }
   };
 
   return (
     <SidebarProvider>
-      <AutoCloseSidebar messageCount={messages.length} />
-      <AppSidebar
-        user={user}
-        chats={chats}
-        currentChatId={currentChatId || undefined}
-        onChatSelect={handleChatSelect}
-        onNewChat={handleNewChat}
-        onDeleteChat={handleDeleteChat}
-        onSignOut={handleSignOut}
-      />
-      <SidebarInset className="flex flex-col h-screen overflow-hidden">
-        {/* Bouton flottant pour ouvrir sidebar */}
-        <SidebarTriggerButton />
+      <ToolkitsProvider>
+        <AppSidebar
+          user={user}
+          chats={chats}
+          currentChatId={currentChatId || undefined}
+          onChatSelect={handleChatSelect}
+          onNewChat={handleNewChat}
+          onDeleteChat={handleDeleteChat}
+          onSignOut={handleSignOut}
+        />
+        <SidebarInset className="flex flex-col h-screen overflow-hidden">
+          <SidebarTriggerButton />
 
-        {/* Messages - zone scrollable uniquement */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden" ref={scrollRef}>
-          <div className="py-8 px-4 space-y-4 max-w-3xl mx-auto min-h-full">
-            {messages.length === 0 && !streamingMessage && (
-              <div className="flex h-full items-center justify-center">
-                <div className="text-center space-y-3">
-                  <h1 className="text-4xl font-bold">{greeting}</h1>
-                  <p className="text-muted-foreground">
-                    Comment puis-je t'aider ?
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {messages.map((message) => (
-              <ChatMessage key={message.$id} message={message} />
-            ))}
-
-            {streamingMessage && (
-              <ChatMessage
-                message={{
-                  $id: "streaming",
-                  chatId: "",
-                  role: "assistant",
-                  content: streamingMessage,
-                  createdAt: new Date().toISOString(),
-                }}
-              />
-            )}
-
-            {isLoading && !streamingMessage && (
-              <div className="flex justify-start">
-                <div className="bg-muted/50 rounded-2xl px-4 py-3">
-                  <div className="flex gap-1">
-                    <div className="h-2 w-2 animate-bounce rounded-full bg-foreground/40 [animation-delay:-0.3s]" />
-                    <div className="h-2 w-2 animate-bounce rounded-full bg-foreground/40 [animation-delay:-0.15s]" />
-                    <div className="h-2 w-2 animate-bounce rounded-full bg-foreground/40" />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Spacer pour l'input - ajuste selon la hauteur de l'input */}
-            <div className="h-32" aria-hidden="true" />
+          {/* Thread assistant-ui - key force le remontage */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <ChatRuntimeProvider
+              key={conversationKey}
+              currentChatId={currentChatId}
+              onChatCreated={handleChatCreated}
+            >
+              <ErrorBoundary>
+                <Thread loadedMessages={loadedMessages} />
+              </ErrorBoundary>
+            </ChatRuntimeProvider>
           </div>
-        </div>
-
-        {/* Input fixe en bas - utilise absolute au lieu de sticky */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background via-background/95 to-background/0 backdrop-blur-sm pointer-events-none">
-          <div className="max-w-3xl mx-auto pointer-events-auto">
-            <ChatInput
-              onSend={handleSendMessage}
-              disabled={isLoading}
-              lastFailedMessage={lastFailedMessage}
-            />
-          </div>
-        </div>
-      </SidebarInset>
+        </SidebarInset>
+      </ToolkitsProvider>
     </SidebarProvider>
   );
-}
-
-// Composant pour fermer automatiquement la sidebar quand la conversation commence
-function AutoCloseSidebar({ messageCount }: { messageCount: number }) {
-  const { isMobile, setOpen, setOpenMobile } = useSidebar();
-  const hasClosedRef = useRef(false);
-
-  useEffect(() => {
-    // Fermer uniquement la première fois qu'il y a des messages
-    if (messageCount > 0 && !hasClosedRef.current) {
-      hasClosedRef.current = true;
-      if (isMobile) {
-        setOpenMobile(false);
-      } else {
-        setOpen(false);
-      }
-    }
-    // Réinitialiser quand il n'y a plus de messages
-    if (messageCount === 0) {
-      hasClosedRef.current = false;
-    }
-  }, [messageCount, isMobile, setOpen, setOpenMobile]);
-
-  return null;
 }
 
 // Composant pour le bouton qui ouvre la sidebar
 function SidebarTriggerButton() {
   const { toggleSidebar, isMobile, openMobile, open } = useSidebar();
 
-  // Sur mobile : afficher seulement si fermée
-  // Sur desktop : afficher seulement si fermée
   const shouldShow = isMobile ? !openMobile : !open;
 
   if (!shouldShow) return null;

@@ -11,13 +11,9 @@ import { Badge } from "@/components/ui/badge";
 interface ChatInputProps {
   onSend: (message: string, files?: ProcessedFile[]) => void;
   disabled?: boolean;
-  lastFailedMessage?: {
-    content: string;
-    files?: ProcessedFile[];
-  } | null;
 }
 
-export function ChatInput({ onSend, disabled, lastFailedMessage }: ChatInputProps) {
+export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const [message, setMessage] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [processedFiles, setProcessedFiles] = useState<ProcessedFile[]>([]);
@@ -25,15 +21,6 @@ export function ChatInput({ onSend, disabled, lastFailedMessage }: ChatInputProp
   const [error, setError] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    if (lastFailedMessage) {
-      setMessage(lastFailedMessage.content);
-      if (lastFailedMessage.files) {
-        setProcessedFiles(lastFailedMessage.files);
-      }
-    }
-  }, [lastFailedMessage]);
 
   useEffect(() => {
     if (textareaRef.current) {

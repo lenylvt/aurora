@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Sparkles, Plus, MessageSquare, Trash2, X, PanelLeftClose, PanelLeft } from "lucide-react";
+import { Plus, Trash2, PanelLeft } from "lucide-react";
 import { NavUser } from "@/components/nav-user";
+import { StarLogo } from "@/components/ui/star-logo";
 import {
   Sidebar,
   SidebarContent,
@@ -13,7 +14,6 @@ import {
   SidebarMenuItem,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
@@ -58,41 +58,36 @@ export function AppSidebar({
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
-      {/* Header avec titre et bouton fermer */}
+      {/* Header avec logo et bouton toggle */}
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center justify-between gap-2 px-2 py-3">
-          <span className="text-base font-semibold">Aurora</span>
-
-          {/* Bouton fermer/toggle */}
+        <div className="flex items-center justify-between px-3 py-2">
+          <div className="flex items-center gap-2">
+            <StarLogo size={18} />
+            <span className="text-sm font-semibold">Aurora</span>
+          </div>
           <Button
             variant="ghost"
             size="icon"
             onClick={toggleSidebar}
-            className="h-8 w-8"
+            className="h-7 w-7"
           >
-            {isMobile ? (
-              <X className="h-4 w-4" />
-            ) : (
-              <PanelLeft className="h-4 w-4" />
-            )}
-            <span className="sr-only">
-              {isMobile ? "Fermer" : "Toggle sidebar"}
-            </span>
+            <PanelLeft className="h-4 w-4" />
+            <span className="sr-only">Fermer</span>
           </Button>
         </div>
       </SidebarHeader>
 
-      {/* Contenu scrollable */}
+      {/* Scrollable content */}
       <SidebarContent>
-        <SidebarGroup>
+        <SidebarGroup className="px-2">
           {/* Bouton nouvelle conversation */}
-          <div className="px-2 pb-3 pt-1">
+          <div className="py-2">
             <Button
               onClick={handleNewChat}
-              className="w-full justify-center h-9"
-              variant="default"
+              variant="outline"
+              className="w-full justify-start h-9 gap-2 font-medium"
             >
-              <Plus className="h-4 w-4 mr-2" />
+              <Plus className="h-4 w-4" />
               <span>Nouvelle conversation</span>
             </Button>
           </div>
@@ -101,53 +96,37 @@ export function AppSidebar({
           <SidebarGroupContent>
             <SidebarMenu>
               {chats.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-                  <div className="rounded-full bg-muted p-3 mb-3">
-                    <MessageSquare className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <p className="text-sm text-muted-foreground font-medium mb-1">
+                <div className="flex flex-col items-center justify-center py-8 text-center px-2">
+                  <p className="text-sm text-muted-foreground">
                     Aucune conversation
-                  </p>
-                  <p className="text-xs text-muted-foreground/60">
-                    Commencez une nouvelle conversation
                   </p>
                 </div>
               ) : (
                 chats.map((chat) => (
                   <SidebarMenuItem key={chat.$id}>
-                    <div className="group/chat-item flex items-center gap-1 w-full relative">
+                    <div className="group/chat-item flex items-center w-full relative">
                       <SidebarMenuButton
                         onClick={() => handleChatClick(chat.$id)}
                         isActive={currentChatId === chat.$id}
-                        className="flex-1 h-auto py-2.5 pr-9 group-data-[collapsible=icon]:!p-2"
+                        className="flex-1 h-9 pr-8 group-data-[collapsible=icon]:!p-2"
                         tooltip={chat.title}
                       >
-                        <MessageSquare className="!size-4 shrink-0" />
-                        <div className="flex flex-col flex-1 overflow-hidden min-w-0">
-                          <span className="truncate text-sm font-medium leading-tight">
-                            {chat.title}
-                          </span>
-                          <span className="text-xs text-muted-foreground leading-tight mt-0.5">
-                            {new Date(chat.updatedAt).toLocaleDateString("fr-FR", {
-                              day: "numeric",
-                              month: "short",
-                              year: new Date(chat.updatedAt).getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
-                            })}
-                          </span>
-                        </div>
+                        <span className="truncate text-sm">
+                          {chat.title}
+                        </span>
                       </SidebarMenuButton>
 
-                      {/* Bouton supprimer */}
+                      {/* Delete button - appears on hover */}
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 opacity-0 group-hover/chat-item:opacity-100 transition-opacity shrink-0 absolute right-1 z-10 bg-sidebar hover:bg-sidebar-accent group-data-[collapsible=icon]:hidden"
+                        className="h-7 w-7 opacity-0 group-hover/chat-item:opacity-100 transition-opacity shrink-0 absolute right-1 z-10 hover:bg-sidebar-accent group-data-[collapsible=icon]:hidden"
                         onClick={(e) => {
                           e.stopPropagation();
                           onDeleteChat(chat.$id);
                         }}
                       >
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
                         <span className="sr-only">Supprimer</span>
                       </Button>
                     </div>
@@ -159,7 +138,7 @@ export function AppSidebar({
         </SidebarGroup>
       </SidebarContent>
 
-      {/* Footer avec user */}
+      {/* Footer with user */}
       <SidebarFooter className="mt-auto border-t border-sidebar-border">
         {user && (
           <NavUser
@@ -173,7 +152,7 @@ export function AppSidebar({
         )}
       </SidebarFooter>
 
-      {/* Rail pour toggle sur desktop (zone de drag) */}
+      {/* Rail for desktop toggle */}
       <SidebarRail />
     </Sidebar>
   );

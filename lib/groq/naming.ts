@@ -23,7 +23,7 @@ export async function generateConversationTitle(userMessage: string): Promise<st
         messages: [
           {
             role: "system",
-            content: "Generate a short and precise title (3-6 words maximum) to summarize this conversation. Reply ONLY with the title, without quotes, without final period.",
+            content: "Generate a short and precise title (3-6 words maximum) to summarize this conversation. Reply ONLY with the title, without quotes, without final period. Must be in message language (French).",
           },
           {
             role: "user",
@@ -44,7 +44,7 @@ export async function generateConversationTitle(userMessage: string): Promise<st
           .replace(/\.+$/, "")
           .slice(0, 60);
 
-        return cleanTitle || "New conversation";
+        return cleanTitle || "Nouvelle conversation";
       }
     } catch (error: any) {
       console.error(`[Groq/OpenAI] Error with model ${model}:`, error.message);

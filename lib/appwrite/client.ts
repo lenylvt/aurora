@@ -19,15 +19,36 @@ export async function getCurrentUser() {
   }
 }
 
-// Get current session JWT token
+// JWT Cache - Appwrite JWTs are valid for 15 minutes, cache for 14 minutes
+let cachedJWT: string | null = null;
+let jwtExpiresAt: number = 0;
+const JWT_CACHE_DURATION = 14 * 60 * 1000; // 14 minutes in ms
+
+// Get current session JWT token with caching
 export async function getSessionJWT() {
+  // Return cached JWT if still valid
+  if (cachedJWT && Date.now() < jwtExpiresAt) {
+    return cachedJWT;
+  }
+
   try {
     const jwt = await account.createJWT();
-    return jwt.jwt;
+    cachedJWT = jwt.jwt;
+    jwtExpiresAt = Date.now() + JWT_CACHE_DURATION;
+    return cachedJWT;
   } catch (error) {
     console.error("Error creating JWT:", error);
+    // Clear cache on error
+    cachedJWT = null;
+    jwtExpiresAt = 0;
     return null;
   }
+}
+
+// Clear JWT cache (call on logout)
+export function clearJWTCache() {
+  cachedJWT = null;
+  jwtExpiresAt = 0;
 }
 
 // Sign in with email
@@ -55,6 +76,8 @@ export async function signUp(email: string, password: string, name: string) {
 // Sign out
 export async function signOut() {
   try {
+    // Clear JWT cache before signing out
+    clearJWTCache();
     await account.deleteSession("current");
     return { success: true };
   } catch (error: any) {

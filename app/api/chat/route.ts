@@ -1,26 +1,35 @@
-import { NextRequest, NextResponse } from "next/server";
-import type OpenAI from "openai";
-import {
-  generateChatCompletion,
-  generateStreamingCompletion,
-  type ChatMessage,
-  type Tool,
-} from "@/lib/groq/client";
+import { NextRequest } from "next/server";
+import { streamText, convertToModelMessages, stepCountIs, type UIMessage } from "ai";
+import { groq } from "@ai-sdk/groq";
 import { getCurrentUserServer } from "@/lib/appwrite/server";
-import {
-  composio,
-  getAvailableToolkits,
-  getComposioTools,
-  getToolsDescriptions,
-  executeTool,
-} from "@/lib/composio/client";
+import { getComposioTools, isComposioAvailable } from "@/lib/composio/client";
+import { getEnabledToolkitSlugs } from "@/lib/composio/config";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-interface ToolCallRequest {
-  messages: ChatMessage[];
-  enabledToolkits?: string[];
+interface ChatRequest {
+  messages: UIMessage[];
+}
+
+// Fallback chain: try each model in order
+const MODELS = [
+  "openai/gpt-oss-120b",
+  "qwen/qwen3-32b",
+  "openai/gpt-oss-20b",
+] as const;
+
+// Vision model for images
+const VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+
+// Helper to check if messages contain images
+function hasImages(messages: any[]): boolean {
+  return messages.some((msg) => {
+    if (msg.content && Array.isArray(msg.content)) {
+      return msg.content.some((c: any) => c.type === "image" || c.type === "image_url");
+    }
+    return false;
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -28,217 +37,106 @@ export async function POST(req: NextRequest) {
     const user = await getCurrentUserServer();
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    const { messages, enabledToolkits }: ToolCallRequest = await req.json();
+    const { messages }: ChatRequest = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
-      return NextResponse.json(
-        { error: "Messages are required" },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: "Messages are required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    let toolkitsToUse: string[] = [];
-    let tools: Tool[] = [];
-    let toolsDescription = "";
+    // Get Composio tools for connected toolkits
+    let tools: Record<string, any> = {};
 
-    // Get tools if Composio is available
-    try {
-      if (composio) {
-        toolkitsToUse =
-          enabledToolkits && enabledToolkits.length > 0
-            ? enabledToolkits
-            : await getAvailableToolkits(user.$id);
+    if (isComposioAvailable()) {
+      try {
+        // Get enabled toolkit slugs from config
+        const enabledToolkits = getEnabledToolkitSlugs();
 
-        if (toolkitsToUse.length > 0) {
-          // getComposioTools returns ComposioTools which is compatible with Tool[]
-          const composioTools = await getComposioTools(user.$id, toolkitsToUse);
-          tools = composioTools;
-          toolsDescription = await getToolsDescriptions(
-            toolkitsToUse,
-            user.$id
-          );
-        }
-      }
-    } catch (toolError) {
-      console.warn("Composio tools not available:", toolError);
-    }
+        if (enabledToolkits.length > 0) {
+          tools = await getComposioTools(user.$id, {
+            toolkits: enabledToolkits,
+            limit: 50, // Get more tools for multiple toolkits
+          });
 
-    const messagesWithSystem =
-      toolsDescription && messages[0]?.role !== "system"
-        ? [
-            {
-              role: "system" as const,
-              content: `You are a helpful AI assistant.${toolsDescription}`,
-            },
-            ...messages,
-          ]
-        : messages;
-
-    // If we have tools available, make a first call to detect tool calls
-    if (tools.length > 0) {
-      const result = await generateChatCompletion(messagesWithSystem, tools);
-
-      if (!result.success || !result.completion) {
-        return NextResponse.json(
-          { error: result.error || "Failed to generate response" },
-          { status: 500 }
-        );
-      }
-
-      const completion = result.completion;
-      const message = completion.choices[0]?.message;
-
-      // If we have tool calls, execute them and stream the final response
-      if (message?.tool_calls && message.tool_calls.length > 0) {
-        const toolResults = await Promise.all(
-          message.tool_calls.map(async (toolCall: any) => {
-            try {
-              const args = JSON.parse(toolCall.function.arguments);
-              const toolResult = await executeTool(
-                toolCall.function.name,
-                args,
-                user.$id
-              );
-
-              return {
-                tool_call_id: toolCall.id,
-                role: "tool" as const,
-                name: toolCall.function.name,
-                content: JSON.stringify(toolResult),
-              };
-            } catch (error: any) {
-              console.error(
-                `Error executing tool ${toolCall.function.name}:`,
-                error
-              );
-              return {
-                tool_call_id: toolCall.id,
-                role: "tool" as const,
-                name: toolCall.function.name,
-                content: JSON.stringify({
-                  error: error.message || "Tool execution failed",
-                }),
-              };
-            }
-          })
-        );
-
-        const newMessages: ChatMessage[] = [
-          ...messagesWithSystem,
-          {
-            role: "assistant" as const,
-            content: message.content || "",
-            tool_calls: message.tool_calls.map((tc: any) => ({
-              id: tc.id,
-              type: "function" as const,
-              function: {
-                name: tc.function.name,
-                arguments: tc.function.arguments,
-              },
-            })),
-          },
-          ...toolResults,
-        ];
-
-        // Stream the final response after tool execution
-        const streamResult = await generateStreamingCompletion(newMessages);
-
-        if (!streamResult.success || !streamResult.stream) {
-          return NextResponse.json(
-            {
-              error: streamResult.error || "Failed to generate final response",
-            },
-            { status: 500 }
-          );
-        }
-
-        const encoder = new TextEncoder();
-        const stream = new ReadableStream({
-          async start(controller) {
-            try {
-              for await (const chunk of streamResult.stream!) {
-                const content = chunk.choices[0]?.delta?.content || "";
-                if (content) {
-                  controller.enqueue(encoder.encode(content));
-                }
-              }
-              controller.close();
-            } catch (error) {
-              controller.error(error);
-            }
-          },
-        });
-
-        return new Response(stream, {
-          headers: {
-            "Content-Type": "text/plain; charset=utf-8",
-            "Transfer-Encoding": "chunked",
-            "X-Model-Used": streamResult.model || "unknown",
-            "X-Tools-Used": "true",
-          },
-        });
-      }
-
-      // No tool calls, stream the response anyway
-      const content = message?.content || "";
-      const encoder = new TextEncoder();
-      const stream = new ReadableStream({
-        start(controller) {
-          controller.enqueue(encoder.encode(content));
-          controller.close();
-        },
-      });
-
-      return new Response(stream, {
-        headers: {
-          "Content-Type": "text/plain; charset=utf-8",
-          "X-Model-Used": result.model || "unknown",
-        },
-      });
-    }
-
-    // No tools available, stream directly
-    const streamResult = await generateStreamingCompletion(messagesWithSystem);
-
-    if (!streamResult.success || !streamResult.stream) {
-      return NextResponse.json(
-        { error: streamResult.error || "Failed to generate response" },
-        { status: 500 }
-      );
-    }
-
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          for await (const chunk of streamResult.stream!) {
-            const content = chunk.choices[0]?.delta?.content || "";
-            if (content) {
-              controller.enqueue(encoder.encode(content));
-            }
+          if (Object.keys(tools).length > 0) {
+            console.log(`[Chat API] Loaded ${Object.keys(tools).length} Composio tools:`, Object.keys(tools).slice(0, 10));
           }
-          controller.close();
-        } catch (error) {
-          controller.error(error);
         }
-      },
+      } catch (toolError) {
+        console.warn("[Chat API] Composio tools not available:", toolError);
+      }
+    }
+
+    // Select model based on whether we have images
+    const containsImages = hasImages(messages);
+    const selectedModel = containsImages ? VISION_MODEL : MODELS[0];
+
+    // Convert messages to model messages format
+    const modelMessages = convertToModelMessages(messages);
+
+    // Build system prompt with available tools
+    const toolNames = Object.keys(tools);
+    let systemPrompt = `Tu es Aurora, un assistant IA bienveillant et intelligent conçu pour aider les lycéens dans leurs études. Tu réponds toujours en français de manière claire, pédagogique et encourageante.`;
+
+    if (toolNames.length > 0) {
+      const toolDescriptions = toolNames.slice(0, 20).map((name) => {
+        const t = tools[name] as any;
+        return `- **${name}**: ${t.description || "Outil disponible"}`;
+      }).join("\n");
+
+      systemPrompt += `
+
+## Tes outils disponibles
+
+Tu as accès aux outils suivants que tu peux utiliser pour aider l'utilisateur:
+
+${toolDescriptions}
+${toolNames.length > 20 ? `\n...(et ${toolNames.length - 20} autres outils)` : ''}
+
+Utilise ces outils quand c'est pertinent pour répondre aux demandes de l'utilisateur.`;
+    }
+
+    // Stream the response using Vercel AI SDK
+    // The Composio Vercel provider automatically handles tool execution
+    const result = streamText({
+      model: groq(selectedModel),
+      system: systemPrompt,
+      messages: modelMessages,
+      tools: Object.keys(tools).length > 0 ? tools : undefined,
+      stopWhen: stepCountIs(5),
+      temperature: 0.7,
     });
 
-    return new Response(stream, {
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "Transfer-Encoding": "chunked",
-        "X-Model-Used": streamResult.model || "unknown",
+    // Return the UI message stream response
+    return result.toUIMessageStreamResponse({
+      originalMessages: messages,
+      onError: (error) => {
+        console.error("[Chat API] Stream error:", error);
+        if (error == null) {
+          return "Erreur inconnue";
+        }
+        if (typeof error === "string") {
+          return error;
+        }
+        if (error instanceof Error) {
+          return error.message;
+        }
+        return JSON.stringify(error);
       },
     });
   } catch (error: any) {
     console.error("Chat API error:", error);
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 }
+    return new Response(
+      JSON.stringify({ error: error.message || "Internal server error" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 }

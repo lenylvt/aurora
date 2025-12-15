@@ -1,303 +1,410 @@
-import { Composio } from "@composio/core";
-import { OpenAIProvider } from "@composio/openai";
-import type OpenAI from "openai";
-import mcpServersConfig from "@/mcp-servers.json";
-import type { MCPServerConfig } from "@/types/mcp-server";
+/**
+ * Composio Client
+ * 
+ * Full integration with Composio SDK using Vercel AI SDK provider.
+ * Supports OAuth2, API Key authentication, and tool management.
+ * 
+ * Docs: https://docs.composio.dev/providers/vercel
+ */
 
-if (!process.env.COMPOSIO_API_KEY) {
-  console.warn("COMPOSIO_API_KEY is not set - tools will be disabled");
-}
+import { Composio, AuthScheme } from "@composio/core";
+import { VercelProvider } from "@composio/vercel";
 
 const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
-const COMPOSIO_BASE_URL = "https://backend.composio.dev/api/v3";
 
-// Initialize Composio with OpenAI Provider for tools
+// Initialize Composio with Vercel Provider
 export const composio = COMPOSIO_API_KEY
-  ? new Composio({
-      apiKey: COMPOSIO_API_KEY,
-      provider: new OpenAIProvider(),
+    ? new Composio({
+        apiKey: COMPOSIO_API_KEY,
+        provider: new VercelProvider(),
     })
-  : null;
-
-// Export the type for tools returned by Composio
-export type ComposioTools = OpenAI.Chat.Completions.ChatCompletionTool[];
+    : null;
 
 /**
- * Get all configured MCP servers
+ * Check if Composio is available
  */
-export function getConfiguredServers(): MCPServerConfig[] {
-  return mcpServersConfig.servers as MCPServerConfig[];
+export function isComposioAvailable(): boolean {
+    return composio !== null;
+}
+
+// =============================================================================
+// Tool Fetching
+// =============================================================================
+
+export interface ToolFetchOptions {
+    toolkits?: string[];
+    tools?: string[];
+    search?: string;
+    limit?: number;
 }
 
 /**
- * Get a specific server configuration by ID
- */
-export function getServerConfig(serverId: string): MCPServerConfig | undefined {
-  return mcpServersConfig.servers.find((s) => s.id === serverId) as MCPServerConfig | undefined;
-}
-
-/**
- * Get all available toolkits for a user (connected + no-auth required)
- */
-export async function getAvailableToolkits(userId: string): Promise<string[]> {
-  if (!composio) return [];
-
-  try {
-    const servers = getConfiguredServers();
-    const connections = await getUserConnections(userId);
-
-    const connectedToolkits = new Set<string>();
-    connections.forEach((connection: any) => {
-      if (connection.status === "ACTIVE") {
-        connectedToolkits.add(connection.appName?.toLowerCase() || "");
-      }
-    });
-
-    const availableToolkits = servers
-      .filter((server) => {
-        return (
-          !server.requiresAuth ||
-          connectedToolkits.has(server.toolkit.toLowerCase())
-        );
-      })
-      .map((server) => server.toolkit);
-
-    return availableToolkits;
-  } catch (error) {
-    console.error("Error getting available toolkits:", error);
-    return [];
-  }
-}
-
-/**
- * Get tools for specified toolkits using Composio's tools API
- * Returns OpenAI-compatible tool format
+ * Get Composio tools for a user
+ * Tools are scoped to user's connected accounts
  */
 export async function getComposioTools(
-  userId: string,
-  enabledToolkits: string[] = []
-): Promise<ComposioTools> {
-  if (!composio || enabledToolkits.length === 0) {
-    return [];
-  }
-
-  try {
-    // Use the tools.get API with toolkits parameter
-    const tools = await composio.tools.get(userId, {
-      toolkits: enabledToolkits,
-    });
-
-    // The tools are already in OpenAI format from the provider
-    return tools as ComposioTools;
-  } catch (error) {
-    console.error("Error getting Composio tools:", error);
-    return [];
-  }
-}
-
-/**
- * Execute tool calls using the OpenAI Provider
- * This handles the full response from OpenAI chat completion
- */
-export async function handleToolCalls(
-  userId: string,
-  response: OpenAI.Chat.Completions.ChatCompletion
-) {
-  if (!composio) {
-    throw new Error("Composio not initialized");
-  }
-
-  try {
-    const result = await composio.provider.handleToolCalls(userId, response);
-    return result;
-  } catch (error) {
-    console.error("Error handling tool calls:", error);
-    throw error;
-  }
-}
-
-/**
- * Execute a single tool directly using composio.tools.execute
- */
-export async function executeTool(
-  actionName: string,
-  params: Record<string, any>,
-  userId: string
-) {
-  if (!composio) {
-    throw new Error("Composio not initialized");
-  }
-
-  try {
-    console.log(`[Composio] Executing action: ${actionName}`);
-    console.log(`[Composio] User ID: ${userId}`);
-    console.log(`[Composio] Parameters:`, JSON.stringify(params, null, 2));
-
-    // Use the direct tools.execute API
-    const result = await composio.tools.execute(actionName, {
-      userId,
-      arguments: params,
-    });
-
-    console.log(`[Composio] Result:`, JSON.stringify(result, null, 2));
-    return result;
-  } catch (error: any) {
-    console.error(`[Composio] Error executing action ${actionName}:`, error);
-
-    const errorDetails = {
-      message: error.message,
-      status: error.status || error.statusCode,
-      response: error.response?.data || error.response,
-      details: error.details,
-      stack: error.stack,
-    };
-
-    console.error(`[Composio] Error details:`, JSON.stringify(errorDetails, null, 2));
-
-    const enrichedError: any = new Error(
-      error.message || `Failed to execute ${actionName}`
-    );
-    enrichedError.details = errorDetails;
-    enrichedError.actionName = actionName;
-    enrichedError.params = params;
-
-    throw enrichedError;
-  }
-}
-
-/**
- * Get tools descriptions for system prompt
- */
-export async function getToolsDescriptions(
-  toolkits: string[],
-  userId?: string
-): Promise<string> {
-  if (!composio || toolkits.length === 0) {
-    return "";
-  }
-
-  try {
-    const tools = await getComposioTools(userId || "", toolkits);
-
-    if (!tools || tools.length === 0) {
-      return "";
+    userId: string,
+    options: ToolFetchOptions = {}
+): Promise<Record<string, any>> {
+    if (!composio) {
+        console.warn("[Composio] Not initialized - missing COMPOSIO_API_KEY");
+        return {};
     }
 
-    const descriptions = tools
-      .map((tool: any) => {
-        const name = tool.function?.name || tool.name || "unknown";
-        const description = tool.function?.description || tool.description || "No description";
-        return `- ${name}: ${description}`;
-      })
-      .join("\n");
+    try {
+        // Build filter params based on what's provided
+        // The SDK requires specific filter combinations
+        let tools: any;
 
-    return `\nYou have access to the following tools:\n\n${descriptions}\n\nUse these tools when relevant to help the user.`;
-  } catch (error) {
-    console.error("Error getting tools descriptions:", error);
-    return "";
-  }
+        if (options.tools && options.tools.length > 0) {
+            // Fetch specific tools by name
+            tools = await composio.tools.get(userId, {
+                tools: options.tools,
+            });
+        } else if (options.toolkits && options.toolkits.length > 0) {
+            // Fetch by toolkit
+            tools = await composio.tools.get(userId, {
+                toolkits: options.toolkits,
+            });
+        } else {
+            // No filters - return empty
+            console.log("[Composio] No toolkits or tools specified");
+            return {};
+        }
+
+        const toolCount = Object.keys(tools as Record<string, any>).length;
+        console.log(`[Composio] Loaded ${toolCount} tools for user ${userId}`);
+        return tools as Record<string, any>;
+    } catch (error: any) {
+        console.error("[Composio] Error fetching tools:", error.message);
+        return {};
+    }
 }
 
 /**
- * Get authentication URL for a toolkit using Composio REST API
+ * Get raw tool schemas without user scoping
+ * Useful for inspecting tool parameters
  */
-export async function getAuthUrl(
-  userId: string,
-  toolkit: string
-): Promise<string> {
-  if (!COMPOSIO_API_KEY) {
-    throw new Error("Composio not initialized");
-  }
-
-  try {
-    // Use Composio REST API for connection initiation
-    const response = await fetch(`${COMPOSIO_BASE_URL}/connectedAccounts`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": COMPOSIO_API_KEY,
-      },
-      body: JSON.stringify({
-        integrationId: toolkit,
-        entityId: userId,
-        redirectUri: `${process.env.NEXT_PUBLIC_APP_URL}/api/composio/callback`,
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || "Failed to initiate connection");
+export async function getRawToolSchemas(
+    options: ToolFetchOptions = {}
+): Promise<any[]> {
+    if (!composio) {
+        return [];
     }
 
-    const data = await response.json();
-
-    if (!data.redirectUrl) {
-      throw new Error("No redirect URL returned");
+    try {
+        // SDK typing is strict about filter combinations
+        // Use type assertion for flexibility
+        if (options.toolkits && options.toolkits.length > 0) {
+            return await composio.tools.getRawComposioTools({
+                toolkits: options.toolkits,
+            } as any);
+        } else if (options.tools && options.tools.length > 0) {
+            return await composio.tools.getRawComposioTools({
+                tools: options.tools,
+            } as any);
+        }
+        return [];
+    } catch (error: any) {
+        console.error("[Composio] Error fetching raw tools:", error.message);
+        return [];
     }
+}
 
-    return data.redirectUrl;
-  } catch (error) {
-    console.error(`Error getting auth URL for ${toolkit}:`, error);
-    throw error;
-  }
+// =============================================================================
+// OAuth2 Connection Flow
+// =============================================================================
+
+export interface ConnectionRequest {
+    id: string;
+    redirectUrl: string;
+    status: string;
 }
 
 /**
- * Get user's connected accounts using Composio REST API
+ * Initiate OAuth2 connection for a toolkit
+ * Returns a redirect URL for the user to complete authentication
  */
-export async function getUserConnections(userId: string) {
-  if (!COMPOSIO_API_KEY) return [];
-
-  try {
-    const response = await fetch(
-      `${COMPOSIO_BASE_URL}/connectedAccounts?entityId=${userId}`,
-      {
-        headers: {
-          "x-api-key": COMPOSIO_API_KEY,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch connections");
+export async function initiateOAuthConnection(
+    userId: string,
+    authConfigId: string,
+    callbackUrl: string
+): Promise<ConnectionRequest | null> {
+    if (!composio) {
+        console.warn("[Composio] Not initialized");
+        return null;
     }
 
-    const data = await response.json();
-    return data.items || data.connectedAccounts || [];
-  } catch (error) {
-    console.error("Error getting user connections:", error);
-    return [];
-  }
+    try {
+        const connectionRequest = await composio.connectedAccounts.initiate(
+            userId,
+            authConfigId,
+            {
+                config: AuthScheme.OAuth2({}),
+                callbackUrl,
+            }
+        );
+
+        console.log(`[Composio] OAuth initiated for user ${userId}, connection: ${connectionRequest.id}`);
+
+        return {
+            id: connectionRequest.id,
+            redirectUrl: connectionRequest.redirectUrl || "",
+            status: connectionRequest.status || "INITIATED",
+        };
+    } catch (error: any) {
+        console.error("[Composio] Error initiating OAuth:", error.message);
+        return null;
+    }
 }
 
 /**
- * Disconnect a user's account using Composio REST API
+ * Initiate connection using the hosted link flow (simpler)
+ */
+export async function initiateHostedConnection(
+    userId: string,
+    authConfigId: string,
+    callbackUrl: string
+): Promise<ConnectionRequest | null> {
+    if (!composio) {
+        console.warn("[Composio] Not initialized");
+        return null;
+    }
+
+    try {
+        const connectionRequest = await composio.connectedAccounts.link(
+            userId,
+            authConfigId,
+            { callbackUrl }
+        );
+
+        return {
+            id: connectionRequest.id,
+            redirectUrl: connectionRequest.redirectUrl || "",
+            status: "INITIATED",
+        };
+    } catch (error: any) {
+        console.error("[Composio] Error creating hosted link:", error.message);
+        return null;
+    }
+}
+
+/**
+ * Wait for a connection to become active
+ */
+export async function waitForConnection(
+    connectionId: string,
+    timeoutMs: number = 60000
+): Promise<{ connected: boolean; accountId?: string; status?: string }> {
+    if (!composio) {
+        return { connected: false };
+    }
+
+    try {
+        const connectedAccount = await composio.connectedAccounts.waitForConnection(
+            connectionId,
+            timeoutMs
+        );
+
+        return {
+            connected: connectedAccount.status === "ACTIVE",
+            accountId: connectedAccount.id,
+            status: connectedAccount.status,
+        };
+    } catch (error: any) {
+        console.error("[Composio] Error waiting for connection:", error.message);
+        return { connected: false, status: "FAILED" };
+    }
+}
+
+// =============================================================================
+// API Key Connection Flow
+// =============================================================================
+
+/**
+ * Connect using API Key authentication
+ */
+export async function initiateApiKeyConnection(
+    userId: string,
+    authConfigId: string,
+    apiKey: string
+): Promise<{ connected: boolean; accountId?: string }> {
+    if (!composio) {
+        return { connected: false };
+    }
+
+    try {
+        const connectionRequest = await composio.connectedAccounts.initiate(
+            userId,
+            authConfigId,
+            {
+                config: AuthScheme.APIKey({ api_key: apiKey }),
+            }
+        );
+
+        return {
+            connected: true,
+            accountId: connectionRequest.id,
+        };
+    } catch (error: any) {
+        console.error("[Composio] Error connecting with API key:", error.message);
+        return { connected: false };
+    }
+}
+
+// =============================================================================
+// Connection Management
+// =============================================================================
+
+export interface Connection {
+    id: string;
+    userId: string;
+    toolkit: string;
+    appName: string;
+    status: string;
+    createdAt: string;
+}
+
+/**
+ * List all connections for a user
+ */
+export async function getUserConnections(userId: string): Promise<Connection[]> {
+    if (!composio) {
+        return [];
+    }
+
+    try {
+        const result = await composio.connectedAccounts.list({
+            userIds: [userId],
+        });
+
+        return (result.items || []).map((account: any) => ({
+            id: account.id,
+            userId: account.userId || userId,
+            toolkit: account.toolkit?.slug?.toUpperCase() || account.appName?.toUpperCase() || "",
+            appName: account.appName || "",
+            status: account.status,
+            createdAt: account.createdAt || "",
+        }));
+    } catch (error: any) {
+        console.error("[Composio] Error listing connections:", error.message);
+        return [];
+    }
+}
+
+/**
+ * Get connection for a specific toolkit
+ */
+export async function getConnectionForToolkit(
+    userId: string,
+    toolkit: string
+): Promise<{ connected: boolean; accountId?: string; status?: string }> {
+    if (!composio) {
+        return { connected: false };
+    }
+
+    try {
+        const result = await composio.connectedAccounts.list({
+            userIds: [userId],
+        });
+
+        const accounts = result.items || [];
+        const matchingAccount = accounts.find((a: any) => {
+            const accountToolkit = a.toolkit?.slug?.toUpperCase() || a.appName?.toUpperCase() || "";
+            return accountToolkit === toolkit.toUpperCase();
+        });
+
+        if (matchingAccount) {
+            return {
+                connected: matchingAccount.status === "ACTIVE",
+                accountId: matchingAccount.id,
+                status: matchingAccount.status,
+            };
+        }
+
+        return { connected: false };
+    } catch (error: any) {
+        console.error("[Composio] Error checking connection:", error.message);
+        return { connected: false };
+    }
+}
+
+/**
+ * Get a specific connected account by ID
+ */
+export async function getConnectionById(
+    connectionId: string
+): Promise<Connection | null> {
+    if (!composio) {
+        return null;
+    }
+
+    try {
+        const account = await composio.connectedAccounts.get(connectionId) as any;
+        return {
+            id: account.id,
+            userId: account.userId || account.externalUserId || "",
+            toolkit: account.toolkit?.slug?.toUpperCase() || "",
+            appName: account.toolkit?.slug || "",
+            status: account.status,
+            createdAt: account.createdAt || "",
+        };
+    } catch (error: any) {
+        console.error("[Composio] Error getting connection:", error.message);
+        return null;
+    }
+}
+
+/**
+ * Disconnect an account
  */
 export async function disconnectAccount(
-  userId: string,
-  connectionId: string
-): Promise<void> {
-  if (!COMPOSIO_API_KEY) {
-    throw new Error("Composio not initialized");
-  }
-
-  try {
-    const response = await fetch(
-      `${COMPOSIO_BASE_URL}/connectedAccounts/${connectionId}`,
-      {
-        method: "DELETE",
-        headers: {
-          "x-api-key": COMPOSIO_API_KEY,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || "Failed to disconnect account");
+    userId: string,
+    accountId: string
+): Promise<boolean> {
+    if (!composio) {
+        return false;
     }
-  } catch (error) {
-    console.error("Error disconnecting account:", error);
-    throw error;
-  }
+
+    try {
+        await composio.connectedAccounts.delete(accountId);
+        console.log(`[Composio] Disconnected account ${accountId} for user ${userId}`);
+        return true;
+    } catch (error: any) {
+        console.error("[Composio] Error disconnecting:", error.message);
+        return false;
+    }
 }
+
+// =============================================================================
+// Tool Execution
+// =============================================================================
+
+/**
+ * Execute a tool directly (without LLM)
+ */
+export async function executeTool(
+    toolSlug: string,
+    userId: string,
+    args: Record<string, any>
+): Promise<any> {
+    if (!composio) {
+        throw new Error("Composio not initialized");
+    }
+
+    try {
+        const result = await composio.tools.execute(toolSlug, {
+            userId,
+            arguments: args,
+        });
+        return result;
+    } catch (error: any) {
+        console.error(`[Composio] Error executing tool ${toolSlug}:`, error.message);
+        throw error;
+    }
+}
+
+// Note: The Vercel provider automatically handles tool calls via the execute
+// function that's attached to each tool. No manual handleToolCalls needed.
+// When you pass Composio tools to streamText/generateText, tool execution
+// is handled automatically by the provider.

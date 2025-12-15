@@ -118,4 +118,12 @@
   html, body {
     overscroll-behavior-y: none;
   }
+
+  /* Support pour backdrop-filter (glassmorphism) */
+  @supports (backdrop-filter: blur(0)) or (-webkit-backdrop-filter: blur(0)) {
+    .backdrop-blur-xl {
+      -webkit-backdrop-filter: blur(24px);
+      backdrop-filter: blur(24px);
+    }
+  }
 }

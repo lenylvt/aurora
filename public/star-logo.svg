@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path 
+    d="M256 48
+       C280 160, 352 232, 464 256
+       C352 280, 280 352, 256 464
+       C232 352, 160 280, 48 256
+       C160 232, 232 160, 256 48Z"
+    fill="currentColor"
+    stroke="currentColor"
+    stroke-width="8"
+    stroke-linejoin="round"
+  />
+</svg>

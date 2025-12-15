@@ -1,0 +1,13 @@
+{
+    "$schema": "./types/composio-config.schema.json",
+    "toolkits": [
+        {
+            "id": "gemini",
+            "name": "Gemini",
+            "toolkit": "GEMINI",
+            "description": "Gemini AI - text generation, image generation (Nano Banana), video generation (Veo), embeddings",
+            "enabled": true,
+            "allowedTools": []
+        }
+    ]
+}

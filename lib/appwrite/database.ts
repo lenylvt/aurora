@@ -4,12 +4,12 @@ import { appwriteConfig } from "./config";
 import type { Chat, Message } from "@/types";
 
 // Chat operations
-export async function createChat(userId: string, title: string) {
+export async function createChat(userId: string, chatId?: string, title: string = "Nouvelle conversation") {
   try {
     const chat = await databases.createDocument(
       appwriteConfig.databaseId,
       appwriteConfig.collections.chats,
-      ID.unique(),
+      chatId || ID.unique(),
       {
         userId,
         title,
@@ -75,13 +75,14 @@ export async function createMessage(
   chatId: string,
   role: "user" | "assistant",
   content: string,
+  messageId?: string,
   files?: any[]
 ) {
   try {
     const message = await databases.createDocument(
       appwriteConfig.databaseId,
       appwriteConfig.collections.messages,
-      ID.unique(),
+      messageId || ID.unique(),
       {
         chatId,
         role,
@@ -91,6 +92,48 @@ export async function createMessage(
       }
     );
     return { success: true, message };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+// Update an existing message's content
+export async function updateMessage(
+  messageId: string,
+  content: string
+) {
+  try {
+    const message = await databases.updateDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.collections.messages,
+      messageId,
+      {
+        content,
+      }
+    );
+    return { success: true, message };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+// Create or update a message (upsert)
+export async function createOrUpdateMessage(
+  chatId: string,
+  role: "user" | "assistant",
+  content: string,
+  messageId: string,
+  files?: any[]
+) {
+  try {
+    // First try to update
+    const updateResult = await updateMessage(messageId, content);
+    if (updateResult.success) {
+      return updateResult;
+    }
+
+    // If update failed (message doesn't exist), create it
+    return await createMessage(chatId, role, content, messageId, files);
   } catch (error: any) {
     return { success: false, error: error.message };
   }

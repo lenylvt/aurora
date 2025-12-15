@@ -43,7 +43,7 @@ async function processImage(file: File): Promise<ProcessedFile> {
 }
 
 /**
- * Extraire le texte d'un PDF (MAX 5 PAGES)
+ * Extraire le texte d'un PDF (MAX 10 PAGES)
  */
 async function processPDF(file: File): Promise<ProcessedFile> {
   try {
@@ -55,16 +55,16 @@ async function processPDF(file: File): Promise<ProcessedFile> {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
-    // LIMITE: Maximum 5 pages
-    if (pdf.numPages > 5) {
+    // LIMITE: Maximum 10 pages
+    if (pdf.numPages > 10) {
       throw new Error(
-        `PDF trop long: ${pdf.numPages} pages. Maximum autorisé: 5 pages pour éviter de dépasser les limites de tokens.`
+        `PDF trop long: ${pdf.numPages} pages. Maximum autorisé: 10 pages pour éviter de dépasser les limites de tokens.`
       );
     }
 
     let fullText = "";
 
-    // Extraire le texte de toutes les pages (max 5)
+    // Extraire le texte de toutes les pages (max 10)
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
