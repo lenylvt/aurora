@@ -24,7 +24,11 @@ const SheetOverlay = React.forwardRef<
       "absolute inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
     )}
-    style={{ minHeight: '100dvh' }}
+    style={{
+      minHeight: '100dvh',
+      height: '100dvh',
+      width: '100vw',
+    }}
     {...props}
     ref={ref}
   />

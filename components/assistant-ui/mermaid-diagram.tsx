@@ -201,10 +201,11 @@ const FullscreenModal: FC<{
 
     return createPortal(
         <div
-            className="fixed top-0 left-0 right-0 bottom-0 z-[9999] flex flex-col bg-white dark:bg-zinc-950"
+            className="absolute top-0 left-0 right-0 bottom-0 z-[9999] flex flex-col bg-white dark:bg-zinc-950"
             style={{
                 width: '100vw',
                 height: '100dvh',
+                minHeight: '100dvh',
             }}
             onPointerUp={onPointerUp}
             onPointerLeave={onPointerUp}
