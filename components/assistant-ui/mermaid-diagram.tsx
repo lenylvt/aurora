@@ -201,10 +201,10 @@ const FullscreenModal: FC<{
 
     return createPortal(
         <div
-            className="absolute inset-0 z-[9999] flex flex-col bg-white dark:bg-zinc-950"
+            className="fixed top-0 left-0 right-0 bottom-0 z-[9999] flex flex-col bg-white dark:bg-zinc-950"
             style={{
-                minHeight: '100dvh',
-                height: '100%',
+                width: '100vw',
+                height: '100dvh',
             }}
             onMouseUp={onMouseUp}
             onMouseLeave={onMouseUp}
