@@ -385,17 +385,19 @@ export const MermaidDiagram: FC<MermaidDiagramProps> = ({ code }) => {
     return (
         <>
             <div className="my-4 group relative">
-                {/* Wrapper scrollable pour mobile */}
+                {/* Wrapper scrollable pour mobile - touch-action permet le scroll natif */}
                 <div
-                    className="overflow-auto overscroll-contain rounded-lg border bg-white dark:bg-zinc-900"
+                    className="overflow-auto overscroll-contain rounded-lg border bg-white dark:bg-zinc-900 touch-pan-x touch-pan-y"
                     style={{
                         WebkitOverflowScrolling: 'touch',
-                        maxHeight: '70vh'
+                        maxHeight: '70vh',
+                        touchAction: 'pan-x pan-y'
                     }}
                 >
                     <div
                         ref={containerRef}
-                        className="p-4 min-w-max [&_svg]:block"
+                        className="p-4 min-w-max [&_svg]:block pointer-events-none"
+                        style={{ touchAction: 'none' }}
                         dangerouslySetInnerHTML={{ __html: svg! }}
                     />
                 </div>

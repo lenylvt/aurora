@@ -68,8 +68,8 @@ export const Thread: FC<ThreadProps> = ({ loadedMessages = [] }) => {
         />
       </ThreadPrimitive.Viewport>
 
-      {/* Input flottant en bas - padding avec safe area pour mobile */}
-      <div className="absolute bottom-0 left-0 right-0 px-4 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
+      {/* Input flottant en bas - avec safe area dynamique via CSS variable */}
+      <div className="absolute bottom-0 left-0 right-0 px-4 pt-4 pb-[max(1rem,var(--sab))]">
         <ThreadPrimitive.ViewportFooter className="aui-thread-viewport-footer mx-auto flex w-full max-w-(--thread-max-width) flex-col items-center gap-4">
           <ThreadScrollToBottom />
           <Composer />
