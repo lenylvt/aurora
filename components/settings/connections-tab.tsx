@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { getSessionJWT } from "@/lib/appwrite/client";
-import { Loader2, Plus, Trash2, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, Plus, Trash2, CheckCircle2, Circle } from "lucide-react";
 
 interface Toolkit {
   id: string;
@@ -61,7 +59,7 @@ export default function ConnectionsTab() {
 
   const handleConnect = async (toolkit: Toolkit) => {
     if (!toolkit.hasAuthConfig) {
-      toast.error(`Aucun Auth Config ID pour ${toolkit.name}. Ajoutez-le dans composio.config.json`);
+      toast.error(`Aucun Auth Config ID pour ${toolkit.name}`);
       return;
     }
 
@@ -91,7 +89,7 @@ export default function ConnectionsTab() {
       }
     } catch (error) {
       console.error("Error connecting:", error);
-      toast.error("Échec de la connexion à " + toolkit.name);
+      toast.error("Échec de la connexion");
     } finally {
       setConnectingToolkit(null);
     }
@@ -126,119 +124,73 @@ export default function ConnectionsTab() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="flex h-full items-center justify-center p-8">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold">Connexions d'outils</h2>
-        <p className="text-muted-foreground mt-1">
-          Connectez des services externes pour améliorer les capacités de votre assistant IA
-        </p>
+    <div className="h-full p-6 sm:p-8 space-y-6 overflow-auto">
+      <div>
+        <h2 className="text-xl font-semibold">Connexions</h2>
+        <p className="text-sm text-muted-foreground">Services connectés à Aurora</p>
       </div>
 
       {toolkits.length === 0 ? (
-        <Card>
-          <CardContent className="py-8 text-center">
-            <p className="text-muted-foreground">
-              Aucun outil configuré. Ajoutez des outils dans <code className="bg-muted px-1 rounded">composio.config.json</code>
-            </p>
-          </CardContent>
-        </Card>
+        <div className="text-center py-8 text-muted-foreground">
+          <p>Aucun service disponible</p>
+        </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-2">
           {toolkits.map((toolkit) => (
-            <Card key={toolkit.id} className="flex flex-col">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      {toolkit.name}
-                      {toolkit.isConnected ? (
-                        <Badge variant="default" className="gap-1">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Connecté
-                        </Badge>
-                      ) : !toolkit.hasAuthConfig ? (
-                        <Badge variant="default" className="gap-1">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Prêt
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="gap-1">
-                          <XCircle className="h-3 w-3" />
-                          Non connecté
-                        </Badge>
-                      )}
-                    </CardTitle>
-                    <CardDescription className="mt-2">
-                      {toolkit.description}
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="flex-1">
-                <div className="space-y-4">
-                  {toolkit.allowedTools && toolkit.allowedTools.length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium mb-2">Outils spécifiques:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {toolkit.allowedTools.slice(0, 3).map((tool) => (
-                          <Badge key={tool} variant="outline" className="text-xs">
-                            {tool.split("_").slice(1).join(" ").toLowerCase()}
-                          </Badge>
-                        ))}
-                        {toolkit.allowedTools.length > 3 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{toolkit.allowedTools.length - 3} plus
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  )}
+            <div
+              key={toolkit.id}
+              className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors"
+            >
+              {/* Status indicator */}
+              {toolkit.isConnected ? (
+                <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+              ) : toolkit.hasAuthConfig ? (
+                <Circle className="h-4 w-4 text-muted-foreground shrink-0" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 text-muted-foreground shrink-0" />
+              )}
 
-                  <div className="pt-2">
-                    {toolkit.isConnected ? (
-                      <Button
-                        variant="destructive"
-                        className="w-full"
-                        onClick={() => handleDisconnect(toolkit)}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Déconnecter
-                      </Button>
-                    ) : toolkit.hasAuthConfig ? (
-                      <Button
-                        className="w-full"
-                        onClick={() => handleConnect(toolkit)}
-                        disabled={connectingToolkit === toolkit.id}
-                      >
-                        {connectingToolkit === toolkit.id ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Connexion...
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Connecter
-                          </>
-                        )}
-                      </Button>
-                    ) : (
-                      <Button variant="secondary" className="w-full" disabled>
-                        <CheckCircle2 className="mr-2 h-4 w-4" />
-                        Aucune auth requise
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <p className="font-medium truncate">{toolkit.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{toolkit.description}</p>
+              </div>
+
+              {/* Action */}
+              {toolkit.isConnected ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => handleDisconnect(toolkit)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              ) : toolkit.hasAuthConfig ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => handleConnect(toolkit)}
+                  disabled={connectingToolkit === toolkit.id}
+                >
+                  {connectingToolkit === toolkit.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                </Button>
+              ) : (
+                <span className="text-xs text-muted-foreground shrink-0">Prêt</span>
+              )}
+            </div>
           ))}
         </div>
       )}
