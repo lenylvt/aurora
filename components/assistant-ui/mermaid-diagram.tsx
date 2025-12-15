@@ -387,7 +387,8 @@ export const MermaidDiagram: FC<MermaidDiagramProps> = ({ code }) => {
             <div className="my-4 group relative">
                 <div
                     ref={containerRef}
-                    className="overflow-x-auto rounded-lg border bg-white dark:bg-zinc-900 p-4 [&_svg]:mx-auto [&_svg]:max-w-full"
+                    className="overflow-x-auto overflow-y-hidden rounded-lg border bg-white dark:bg-zinc-900 p-4 [&_svg]:mx-auto [&_svg]:max-w-full touch-pan-x touch-pan-y"
+                    style={{ WebkitOverflowScrolling: 'touch' }}
                     dangerouslySetInnerHTML={{ __html: svg! }}
                 />
                 <Button

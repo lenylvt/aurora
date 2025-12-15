@@ -138,8 +138,8 @@ export function AppSidebar({
         </SidebarGroup>
       </SidebarContent>
 
-      {/* Footer with user */}
-      <SidebarFooter className="mt-auto border-t border-sidebar-border">
+      {/* Footer with user - avec safe area pour mobile */}
+      <SidebarFooter className="mt-auto border-t border-sidebar-border pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         {user && (
           <NavUser
             user={{
