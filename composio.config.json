@@ -8,6 +8,15 @@
             "description": "Gemini AI - text generation, image generation (Nano Banana), video generation (Veo), embeddings",
             "enabled": true,
             "allowedTools": []
+        },
+        {
+            "id": "youtube",
+            "name": "YouTube",
+            "toolkit": "YOUTUBE",
+            "description": "Transcription et analyse des vidéos YouTube",
+            "authConfigId": "ac_lQtsdUyjd7Df",
+            "enabled": true,
+            "allowedTools": [ "YOUTUBE_LOAD_CAPTIONS" ]
         }
     ]
 }

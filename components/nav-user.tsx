@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronsUpDown, LogOut, Sun, Moon, Monitor, Check } from "lucide-react";
+import { useState } from "react";
+import { ChevronsUpDown, LogOut, Sun, Moon, Monitor, Check, Settings } from "lucide-react";
 import { useTheme } from "next-themes";
 import {
   Avatar,
@@ -24,6 +25,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { SettingsDialog } from "@/components/settings/settings-dialog";
 
 export function NavUser({
   user,
@@ -38,6 +40,7 @@ export function NavUser({
 }) {
   const { isMobile } = useSidebar();
   const { theme, setTheme } = useTheme();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
     <SidebarMenu>
@@ -93,6 +96,14 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
 
+            {/* Settings */}
+            <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
+              <Settings className="mr-2 h-4 w-4" />
+              Paramètres
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+
             {/* Theme submenu */}
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
@@ -127,6 +138,13 @@ export function NavUser({
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
+
+      {/* Settings Dialog */}
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        defaultTab="profile"
+      />
     </SidebarMenu>
   );
 }

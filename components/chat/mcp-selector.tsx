@@ -12,8 +12,8 @@ import {
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { getSessionJWT } from "@/lib/appwrite/client";
 import { Sparkles, Check, Loader2, ExternalLink, Settings } from "lucide-react";
-import Link from "next/link";
 import { useToolkits } from "./toolkits-provider";
+import { SettingsDialog } from "@/components/settings/settings-dialog";
 
 interface Toolkit {
     id: string;
@@ -32,6 +32,7 @@ interface ComposioSelectorProps {
 export function ComposioSelector({ className }: ComposioSelectorProps) {
     const { toolkits, loading, refetch } = useToolkits();
     const [connectingId, setConnectingId] = useState<string | null>(null);
+    const [settingsOpen, setSettingsOpen] = useState(false);
 
     const handleConnect = async (toolkit: Toolkit) => {
         if (!toolkit.hasAuthConfig) return;
@@ -99,9 +100,12 @@ export function ComposioSelector({ className }: ComposioSelectorProps) {
             <DropdownMenuContent align="start" className="w-56">
                 <DropdownMenuLabel className="flex items-center justify-between text-xs">
                     Intégrations
-                    <Link href="/connections">
+                    <button
+                        onClick={() => setSettingsOpen(true)}
+                        className="hover:bg-transparent"
+                    >
                         <Settings className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors" />
-                    </Link>
+                    </button>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
 
@@ -140,6 +144,13 @@ export function ComposioSelector({ className }: ComposioSelectorProps) {
                     })
                 )}
             </DropdownMenuContent>
+
+            {/* Settings Dialog */}
+            <SettingsDialog
+                open={settingsOpen}
+                onOpenChange={setSettingsOpen}
+                defaultTab="connections"
+            />
         </DropdownMenu>
     );
 }

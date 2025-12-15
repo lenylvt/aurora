@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { getSessionJWT } from "@/lib/appwrite/client";
-import { Loader2, Plus, Trash2, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Loader2, Plus, Trash2, CheckCircle2, XCircle } from "lucide-react";
 
 interface Toolkit {
   id: string;
@@ -20,7 +20,7 @@ interface Toolkit {
   allowedTools: string[];
 }
 
-export default function ConnectionsPage() {
+export default function ConnectionsTab() {
   const [toolkits, setToolkits] = useState<Toolkit[]>([]);
   const [loading, setLoading] = useState(true);
   const [connectingToolkit, setConnectingToolkit] = useState<string | null>(null);
@@ -33,7 +33,7 @@ export default function ConnectionsPage() {
     try {
       const jwt = await getSessionJWT();
       if (!jwt) {
-        toast.error("Not authenticated");
+        toast.error("Non authentifié");
         setLoading(false);
         return;
       }
@@ -53,7 +53,7 @@ export default function ConnectionsPage() {
       setToolkits(data.toolkits || []);
     } catch (error) {
       console.error("Error fetching toolkits:", error);
-      toast.error("Failed to load toolkits");
+      toast.error("Échec du chargement des outils");
     } finally {
       setLoading(false);
     }
@@ -61,7 +61,7 @@ export default function ConnectionsPage() {
 
   const handleConnect = async (toolkit: Toolkit) => {
     if (!toolkit.hasAuthConfig) {
-      toast.error(`No Auth Config ID set for ${toolkit.name}. Add it in composio.config.json`);
+      toast.error(`Aucun Auth Config ID pour ${toolkit.name}. Ajoutez-le dans composio.config.json`);
       return;
     }
 
@@ -87,11 +87,11 @@ export default function ConnectionsPage() {
       if (data.redirectUrl) {
         window.location.href = data.redirectUrl;
       } else {
-        toast.error(data.error || "Failed to initiate connection");
+        toast.error(data.error || "Échec de la connexion");
       }
     } catch (error) {
       console.error("Error connecting:", error);
-      toast.error("Failed to connect to " + toolkit.name);
+      toast.error("Échec de la connexion à " + toolkit.name);
     } finally {
       setConnectingToolkit(null);
     }
@@ -112,32 +112,32 @@ export default function ConnectionsPage() {
       });
 
       if (response.ok) {
-        toast.success(`Disconnected from ${toolkit.name}`);
+        toast.success(`Déconnecté de ${toolkit.name}`);
         fetchToolkits();
       } else {
         const data = await response.json();
-        toast.error(data.error || "Failed to disconnect");
+        toast.error(data.error || "Échec de la déconnexion");
       }
     } catch (error) {
       console.error("Error disconnecting:", error);
-      toast.error("Failed to disconnect");
+      toast.error("Échec de la déconnexion");
     }
   };
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto max-w-6xl p-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Tool Connections</h1>
-        <p className="text-muted-foreground mt-2">
-          Connect external services to enhance your AI assistant with additional capabilities
+    <div className="p-6">
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold">Connexions d'outils</h2>
+        <p className="text-muted-foreground mt-1">
+          Connectez des services externes pour améliorer les capacités de votre assistant IA
         </p>
       </div>
 
@@ -145,7 +145,7 @@ export default function ConnectionsPage() {
         <Card>
           <CardContent className="py-8 text-center">
             <p className="text-muted-foreground">
-              No toolkits configured. Add toolkits to <code className="bg-muted px-1 rounded">composio.config.json</code>
+              Aucun outil configuré. Ajoutez des outils dans <code className="bg-muted px-1 rounded">composio.config.json</code>
             </p>
           </CardContent>
         </Card>
@@ -161,17 +161,17 @@ export default function ConnectionsPage() {
                       {toolkit.isConnected ? (
                         <Badge variant="default" className="gap-1">
                           <CheckCircle2 className="h-3 w-3" />
-                          Connected
+                          Connecté
                         </Badge>
                       ) : !toolkit.hasAuthConfig ? (
                         <Badge variant="default" className="gap-1">
                           <CheckCircle2 className="h-3 w-3" />
-                          Ready
+                          Prêt
                         </Badge>
                       ) : (
                         <Badge variant="secondary" className="gap-1">
                           <XCircle className="h-3 w-3" />
-                          Not connected
+                          Non connecté
                         </Badge>
                       )}
                     </CardTitle>
@@ -185,7 +185,7 @@ export default function ConnectionsPage() {
                 <div className="space-y-4">
                   {toolkit.allowedTools && toolkit.allowedTools.length > 0 && (
                     <div>
-                      <p className="text-sm font-medium mb-2">Specific Tools:</p>
+                      <p className="text-sm font-medium mb-2">Outils spécifiques:</p>
                       <div className="flex flex-wrap gap-1">
                         {toolkit.allowedTools.slice(0, 3).map((tool) => (
                           <Badge key={tool} variant="outline" className="text-xs">
@@ -194,7 +194,7 @@ export default function ConnectionsPage() {
                         ))}
                         {toolkit.allowedTools.length > 3 && (
                           <Badge variant="outline" className="text-xs">
-                            +{toolkit.allowedTools.length - 3} more
+                            +{toolkit.allowedTools.length - 3} plus
                           </Badge>
                         )}
                       </div>
@@ -209,7 +209,7 @@ export default function ConnectionsPage() {
                         onClick={() => handleDisconnect(toolkit)}
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Disconnect
+                        Déconnecter
                       </Button>
                     ) : toolkit.hasAuthConfig ? (
                       <Button
@@ -220,19 +220,19 @@ export default function ConnectionsPage() {
                         {connectingToolkit === toolkit.id ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Connecting...
+                            Connexion...
                           </>
                         ) : (
                           <>
                             <Plus className="mr-2 h-4 w-4" />
-                            Connect
+                            Connecter
                           </>
                         )}
                       </Button>
                     ) : (
                       <Button variant="secondary" className="w-full" disabled>
                         <CheckCircle2 className="mr-2 h-4 w-4" />
-                        No auth required
+                        Aucune auth requise
                       </Button>
                     )}
                   </div>
