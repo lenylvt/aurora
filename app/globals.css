@@ -106,9 +106,9 @@
 
   body {
     @apply bg-background text-foreground;
-    /* Empêcher le scroll sur body pour mobile */
+    /* iOS 26+ Safari: position relative pour permettre aux modals fixed de fonctionner */
+    position: relative;
     overflow: hidden;
-    position: fixed;
     width: 100%;
     height: 100%;
     /* Pas de padding-bottom sur body, géré par les composants individuels */
