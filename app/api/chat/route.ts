@@ -112,11 +112,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Select model based on whether we have images in the FULL conversation history
+    // Check BEFORE optimization to ensure we detect images even if they were optimized out
+    const containsImages = hasImages(messages);
+
     // Optimize message context to reduce API usage
     const optimizedMessages = optimizeMessageContext(messages);
-
-    // Select model based on whether we have images
-    const containsImages = hasImages(optimizedMessages);
     const selectedModel = containsImages ? VISION_MODEL : MODELS[0];
 
     // Convert messages to model messages format
