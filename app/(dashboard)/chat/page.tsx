@@ -14,10 +14,19 @@ import {
 } from "@/lib/appwrite/database";
 import type { Chat, User, Message } from "@/types";
 import { toast } from "sonner";
-import { SidebarProvider, SidebarInset, useSidebar } from "@/components/ui/sidebar";
+import {
+  SidebarProvider,
+  SidebarInset,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+} from "@/components/ui/breadcrumb";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
-import { Menu } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 function ChatContent() {
   const router = useRouter();
@@ -25,6 +34,7 @@ function ChatContent() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [loadedMessages, setLoadedMessages] = useState<Message[]>([]);
+  const [isLoadingChats, setIsLoadingChats] = useState(true);
   // Clé unique pour forcer le remontage du ChatRuntimeProvider
   const [conversationKey, setConversationKey] = useState<number>(Date.now());
 
@@ -40,10 +50,12 @@ function ChatContent() {
   }, [router]);
 
   const loadChats = async (userId: string) => {
+    setIsLoadingChats(true);
     const result = await getUserChats(userId);
     if (result.success) {
       setChats(result.chats);
     }
+    setIsLoadingChats(false);
   };
 
   const handleSignOut = async () => {
@@ -97,6 +109,11 @@ function ChatContent() {
     }
   };
 
+  // Trouver le titre du chat actuel
+  const currentChat = currentChatId
+    ? chats.find((c) => c.$id === currentChatId)
+    : null;
+
   return (
     <SidebarProvider>
       <ToolkitsProvider>
@@ -108,9 +125,28 @@ function ChatContent() {
           onNewChat={handleNewChat}
           onDeleteChat={handleDeleteChat}
           onSignOut={handleSignOut}
+          isLoading={isLoadingChats}
         />
         <SidebarInset className="flex flex-col h-screen overflow-hidden">
-          <SidebarTriggerButton />
+          {/* Header avec trigger et breadcrumb */}
+          <header className="flex h-14 shrink-0 items-center gap-2 border-b">
+            <div className="flex items-center gap-2 px-4">
+              <SidebarTrigger className="-ml-1" />
+              <Separator
+                orientation="vertical"
+                className="mr-2 data-[orientation=vertical]:h-4"
+              />
+              <Breadcrumb>
+                <BreadcrumbList>
+                  <BreadcrumbItem>
+                    <BreadcrumbPage>
+                      {currentChat?.title || "Nouvelle conversation"}
+                    </BreadcrumbPage>
+                  </BreadcrumbItem>
+                </BreadcrumbList>
+              </Breadcrumb>
+            </div>
+          </header>
 
           {/* Thread assistant-ui - key force le remontage */}
           <div className="flex-1 flex flex-col overflow-hidden">
@@ -128,33 +164,6 @@ function ChatContent() {
         </SidebarInset>
       </ToolkitsProvider>
     </SidebarProvider>
-  );
-}
-
-// Composant pour le bouton qui ouvre la sidebar
-function SidebarTriggerButton() {
-  const { toggleSidebar, isMobile, openMobile, open } = useSidebar();
-
-  const shouldShow = isMobile ? !openMobile : !open;
-
-  if (!shouldShow) return null;
-
-  return (
-    <div className="fixed top-4 left-4 z-40">
-      <Button
-        onClick={toggleSidebar}
-        size="icon"
-        className={
-          isMobile
-            ? "h-10 w-10 bg-background/60 backdrop-blur-md hover:bg-background/80 shadow-sm border border-border/40"
-            : "h-9 w-9 bg-background/80 backdrop-blur-sm hover:bg-background shadow-sm border"
-        }
-        variant="ghost"
-      >
-        <Menu className="h-4 w-4" />
-        <span className="sr-only">Ouvrir le menu</span>
-      </Button>
-    </div>
   );
 }
 

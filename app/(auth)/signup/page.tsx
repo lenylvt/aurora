@@ -1,18 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { signUp } from "@/lib/appwrite/client";
+import { StarLogo } from "@/components/ui/star-logo";
 
-export default function SignupPage() {
+function SignupForm() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [snapchatLoading, setSnapchatLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -31,83 +33,120 @@ export default function SignupPage() {
     setLoading(false);
   };
 
+  const handleSnapchatLogin = () => {
+    setSnapchatLoading(true);
+    window.location.href = "/api/auth/snapchat";
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-4">
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold tracking-tight">Aurora</h1>
-          <p className="mt-2 text-muted-foreground">
-            Crée ton compte en quelques secondes
-          </p>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+      <div className="w-full max-w-sm space-y-8">
+        {/* Logo et titre */}
+        <div className="flex flex-col items-center space-y-4">
+          <StarLogo size={64} className="text-foreground" />
+          <h1 className="text-3xl font-bold tracking-tight">Aurora</h1>
         </div>
 
-        <div className="bg-card rounded-lg shadow-lg p-8 space-y-6">
+        {/* Formulaire d'inscription */}
+        <div className="space-y-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="name" className="text-sm font-medium">
-                Nom
-              </label>
               <Input
                 id="name"
                 type="text"
-                placeholder="Ton nom"
+                placeholder="Nom"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
                 disabled={loading}
+                className="h-12 rounded-xl"
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
-                Email
-              </label>
               <Input
                 id="email"
                 type="email"
-                placeholder="ton@email.com"
+                placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading}
+                className="h-12 rounded-xl"
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                Mot de passe
-              </label>
               <Input
                 id="password"
                 type="password"
-                placeholder="••••••••"
+                placeholder="Mot de passe"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={8}
                 disabled={loading}
+                className="h-12 rounded-xl"
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground px-1">
                 Minimum 8 caractères
               </p>
             </div>
 
             {error && (
-              <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+              <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-xl">
                 {error}
               </div>
             )}
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button
+              type="submit"
+              className="w-full h-12 rounded-xl text-base font-medium"
+              disabled={loading}
+            >
               {loading ? "Inscription..." : "Créer mon compte"}
             </Button>
           </form>
 
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                Ou
+              </span>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full h-12 rounded-xl text-base font-medium border-2"
+            style={{
+              backgroundColor: '#FFFC00',
+              borderColor: '#FFFC00',
+              color: '#000000'
+            }}
+            onClick={handleSnapchatLogin}
+            disabled={loading || snapchatLoading}
+          >
+            <svg
+              className="mr-2 h-5 w-5"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 512 512"
+              fill="currentColor"
+            >
+              <path d="M256 48C280 160 352 232 464 256C352 280 280 352 256 464C232 352 160 280 48 256C160 232 232 160 256 48Z" />
+            </svg>
+            {snapchatLoading ? "Connexion..." : "Continuer avec Snapchat"}
+          </Button>
+
           <div className="text-center text-sm text-muted-foreground">
-            Déjà un compte?{" "}
+            Déjà un compte ?{" "}
             <Link
               href="/login"
-              className="text-primary font-medium hover:underline"
+              className="text-foreground font-medium hover:underline"
             >
               Se connecter
             </Link>
@@ -115,5 +154,21 @@ export default function SignupPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+        <div className="flex flex-col items-center space-y-4">
+          <StarLogo size={64} className="text-foreground animate-pulse" />
+          <h1 className="text-3xl font-bold tracking-tight">Aurora</h1>
+          <p className="text-muted-foreground">Chargement...</p>
+        </div>
+      </div>
+    }>
+      <SignupForm />
+    </Suspense>
   );
 }

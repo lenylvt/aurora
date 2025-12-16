@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Trash2, PanelLeft } from "lucide-react";
+import { Plus, Trash2, MessageSquare } from "lucide-react";
 import { NavUser } from "@/components/nav-user";
 import { StarLogo } from "@/components/ui/star-logo";
 import {
@@ -13,8 +13,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarGroup,
+  SidebarGroupLabel,
   SidebarGroupContent,
-  SidebarRail,
+  SidebarMenuSkeleton,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   onNewChat: () => void;
   onDeleteChat: (chatId: string) => void;
   onSignOut: () => void;
+  isLoading?: boolean;
 }
 
 export function AppSidebar({
@@ -38,9 +40,10 @@ export function AppSidebar({
   onNewChat,
   onDeleteChat,
   onSignOut,
+  isLoading = false,
   ...props
 }: AppSidebarProps) {
-  const { setOpenMobile, isMobile, toggleSidebar } = useSidebar();
+  const { setOpenMobile, isMobile } = useSidebar();
 
   const handleChatClick = (chatId: string) => {
     onChatSelect(chatId);
@@ -57,31 +60,26 @@ export function AppSidebar({
   };
 
   return (
-    <Sidebar collapsible="offcanvas" {...props}>
-      {/* Header avec logo et bouton toggle */}
-      <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center justify-between px-3 py-2">
-          <div className="flex items-center gap-2">
-            <StarLogo size={18} />
-            <span className="text-sm font-semibold">Aurora</span>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleSidebar}
-            className="h-7 w-7"
-          >
-            <PanelLeft className="h-4 w-4" />
-            <span className="sr-only">Fermer</span>
-          </Button>
-        </div>
+    <Sidebar variant="inset" {...props}>
+      {/* Header avec logo - compact */}
+      <SidebarHeader className="py-2">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild>
+              <a href="/chat">
+                <StarLogo size={20} />
+                <span className="truncate font-semibold">Aurora</span>
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
 
       {/* Scrollable content */}
       <SidebarContent>
-        <SidebarGroup className="px-2">
-          {/* Bouton nouvelle conversation */}
-          <div className="py-2">
+        {/* Bouton nouvelle conversation */}
+        <SidebarGroup>
+          <SidebarGroupContent>
             <Button
               onClick={handleNewChat}
               variant="outline"
@@ -90,12 +88,28 @@ export function AppSidebar({
               <Plus className="h-4 w-4" />
               <span>Nouvelle conversation</span>
             </Button>
-          </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-          {/* Liste des conversations */}
+        {/* Liste des conversations */}
+        <SidebarGroup className="flex-1">
+          <SidebarGroupLabel>Conversations</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {chats.length === 0 ? (
+              {isLoading ? (
+                // Skeleton loading state
+                <>
+                  <SidebarMenuItem>
+                    <SidebarMenuSkeleton showIcon />
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuSkeleton showIcon />
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuSkeleton showIcon />
+                  </SidebarMenuItem>
+                </>
+              ) : chats.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center px-2">
                   <p className="text-sm text-muted-foreground">
                     Aucune conversation
@@ -108,19 +122,18 @@ export function AppSidebar({
                       <SidebarMenuButton
                         onClick={() => handleChatClick(chat.$id)}
                         isActive={currentChatId === chat.$id}
-                        className="flex-1 h-9 pr-8 group-data-[collapsible=icon]:!p-2"
+                        className="flex-1 pr-8"
                         tooltip={chat.title}
                       >
-                        <span className="truncate text-sm">
-                          {chat.title}
-                        </span>
+                        <MessageSquare className="h-4 w-4 shrink-0" />
+                        <span className="truncate">{chat.title}</span>
                       </SidebarMenuButton>
 
                       {/* Delete button - appears on hover */}
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 opacity-0 group-hover/chat-item:opacity-100 transition-opacity shrink-0 absolute right-1 z-10 hover:bg-sidebar-accent group-data-[collapsible=icon]:hidden"
+                        className="h-7 w-7 opacity-0 group-hover/chat-item:opacity-100 transition-opacity shrink-0 absolute right-1 z-10 hover:bg-sidebar-accent"
                         onClick={(e) => {
                           e.stopPropagation();
                           onDeleteChat(chat.$id);
@@ -139,8 +152,8 @@ export function AppSidebar({
       </SidebarContent>
 
       {/* Footer with user - avec safe area pour mobile */}
-      <SidebarFooter className="mt-auto border-t border-sidebar-border pb-[max(0.75rem,var(--sab))]">
-        {user && (
+      <SidebarFooter className="mb-2 pb-[max(0rem,var(--sab))]">
+        {user ? (
           <NavUser
             user={{
               name: user.name,
@@ -149,11 +162,14 @@ export function AppSidebar({
             }}
             onSignOut={onSignOut}
           />
+        ) : (
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuSkeleton showIcon />
+            </SidebarMenuItem>
+          </SidebarMenu>
         )}
       </SidebarFooter>
-
-      {/* Rail for desktop toggle */}
-      <SidebarRail />
     </Sidebar>
   );
 }
