@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Plus, Trash2, MessageSquare } from "lucide-react";
 import { NavUser } from "@/components/nav-user";
 import { StarLogo } from "@/components/ui/star-logo";
@@ -19,6 +20,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
 import type { Chat, User } from "@/types";
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
@@ -66,10 +68,10 @@ export function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <a href="/chat">
+              <Link href="/chat" prefetch>
                 <StarLogo size={20} />
                 <span className="truncate font-semibold">Aurora</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -86,7 +88,8 @@ export function AppSidebar({
               className="w-full justify-start h-9 gap-2 font-medium"
             >
               <Plus className="h-4 w-4" />
-              <span>Nouvelle conversation</span>
+              <span>Nouveau Chat</span>
+              <Kbd className="ml-auto hidden sm:inline-flex">⌘K</Kbd>
             </Button>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -118,12 +121,15 @@ export function AppSidebar({
               ) : (
                 chats.map((chat) => (
                   <SidebarMenuItem key={chat.$id}>
-                    <div className="group/chat-item flex items-center w-full relative">
+                    <div
+                      className="group/chat-item flex items-center w-full relative"
+                      data-chat-id={chat.$id}
+                    >
                       <SidebarMenuButton
                         onClick={() => handleChatClick(chat.$id)}
                         isActive={currentChatId === chat.$id}
-                        className="flex-1 pr-8"
-                        tooltip={chat.title}
+                        className="flex-1 pr-8 data-[active=true]:bg-sidebar-accent/50 hover:bg-sidebar-accent/30"
+                        tooltip={`${chat.title} (${chat.$id.slice(-4)})`}
                       >
                         <MessageSquare className="h-4 w-4 shrink-0" />
                         <span className="truncate">{chat.title}</span>
@@ -133,14 +139,14 @@ export function AppSidebar({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 opacity-0 group-hover/chat-item:opacity-100 transition-opacity shrink-0 absolute right-1 z-10 hover:bg-sidebar-accent"
+                        className="h-7 w-7 opacity-0 group-hover/chat-item:opacity-60 hover:opacity-100 transition-opacity shrink-0 absolute right-1 z-10 hover:bg-sidebar-accent/50"
                         onClick={(e) => {
                           e.stopPropagation();
                           onDeleteChat(chat.$id);
                         }}
                       >
                         <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-                        <span className="sr-only">Supprimer</span>
+                        <span className="sr-only">Supprimer {chat.title}</span>
                       </Button>
                     </div>
                   </SidebarMenuItem>

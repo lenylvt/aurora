@@ -4,7 +4,7 @@
             "id": "gemini",
             "name": "Gemini",
             "toolkit": "GEMINI",
-            "description": "Gemini AI - text generation, image generation (Nano Banana), video generation (Veo), embeddings",
+            "description": "Génération d'images et de vidéos",
             "enabled": true,
             "allowedTools": []
         },
@@ -12,7 +12,7 @@
             "id": "youtube",
             "name": "YouTube",
             "toolkit": "YOUTUBE",
-            "description": "Transcription et analyse des vidéos YouTube",
+            "description": "Transcription des vidéos YouTube",
             "authConfigId": "ac_lQtsdUyjd7Df",
             "enabled": true,
             "allowedTools": []
@@ -22,7 +22,7 @@
         "file-creator": {
             "id": "file-creator",
             "name": "File Creator",
-            "description": "File creator server",
+            "description": "Création de fichiers tels que PDF, Word, Excel, PowerPoint.",
             "type": "http",
             "url": "https://dl-ai.lenylvt.cc/mcp",
             "enabled": true,

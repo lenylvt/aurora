@@ -30,14 +30,19 @@ import {
   RefreshCwIcon,
   SquareIcon,
 } from "lucide-react";
+import * as React from "react";
 import type { FC } from "react";
 
-export const Thread: FC = () => {
+interface ThreadProps {
+  userName?: string;
+}
+
+export const Thread: FC<ThreadProps> = ({ userName }) => {
   return (
     <ThreadPrimitive.Root
       className="aui-root aui-thread-root @container flex h-full flex-col bg-background relative"
       style={{
-        ["--thread-max-width" as string]: "44rem",
+        ["--thread-max-width" as string]: "36rem",
       }}
     >
       <ThreadPrimitive.Viewport
@@ -45,7 +50,7 @@ export const Thread: FC = () => {
         className="aui-thread-viewport relative flex flex-1 flex-col overflow-y-scroll scroll-smooth px-4 pt-4 pb-32"
       >
         <AssistantIf condition={({ thread }) => thread.isEmpty}>
-          <ThreadWelcome />
+          <ThreadWelcome userName={userName} />
         </AssistantIf>
 
         <ThreadPrimitive.Messages
@@ -57,12 +62,16 @@ export const Thread: FC = () => {
         />
       </ThreadPrimitive.Viewport>
 
-      {/* Input flottant en bas - avec safe area dynamique via CSS variable */}
-      <div className="absolute bottom-0 left-0 right-0 px-4 pt-4 pb-[max(1rem,var(--sab))]">
-        <ThreadPrimitive.ViewportFooter className="aui-thread-viewport-footer mx-auto flex w-full max-w-(--thread-max-width) flex-col items-center gap-4">
-          <ThreadScrollToBottom />
-          <Composer />
-        </ThreadPrimitive.ViewportFooter>
+      {/* Input flottant en bas - avec blur et safe area */}
+      <div className="absolute bottom-0 left-0 right-0 flex justify-center">
+        <div className="relative w-full max-w-[var(--thread-max-width)] px-4 pt-6 pb-[max(1rem,var(--sab))]">
+          {/* Blur gradient effect - only behind input */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
+          <ThreadPrimitive.ViewportFooter className="aui-thread-viewport-footer relative flex w-full flex-col items-center gap-4">
+            <ThreadScrollToBottom />
+            <Composer />
+          </ThreadPrimitive.ViewportFooter>
+        </div>
       </div>
     </ThreadPrimitive.Root>
   );
@@ -82,16 +91,59 @@ const ThreadScrollToBottom: FC = () => {
   );
 };
 
-const ThreadWelcome: FC = () => {
+const WELCOME_MESSAGES = [
+  {
+    greeting: "Salut ! 👋",
+    subtext: "Je suis là pour t'aider dans tes cours",
+  },
+  {
+    greeting: "Bonjour {name} ! ☀️",
+    subtext: "Prêt pour une nouvelle session ?",
+  },
+  {
+    greeting: "Bonsoir {name} ! 🌙",
+    subtext: "Comment puis-je t'aider ce soir ?",
+  },
+  {
+    greeting: "Bonne après-midi ! ☕",
+    subtext: "Besoin d'aide avec tes devoirs ?",
+  },
+  {
+    greeting: "Le retour de {name} ! 🎉",
+    subtext: "Content de te revoir par ici",
+  },
+  {
+    greeting: "Coucou ! 🌟",
+    subtext: "Qu'est-ce qu'on étudie aujourd'hui ?",
+  },
+  {
+    greeting: "Hey {name} ! 🚀",
+    subtext: "C'est parti pour apprendre",
+  },
+] as const;
+
+interface ThreadWelcomeProps {
+  userName?: string;
+}
+
+const ThreadWelcome: FC<ThreadWelcomeProps> = ({ userName }) => {
+  // Choisir un message de bienvenue aléatoire
+  const [welcomeMessage] = React.useState(() => {
+    const randomIndex = Math.floor(Math.random() * WELCOME_MESSAGES.length);
+    return WELCOME_MESSAGES[randomIndex];
+  });
+
+  const greeting = welcomeMessage.greeting.replace("{name}", userName || "toi");
+
   return (
-    <div className="aui-thread-welcome-root mx-auto my-auto flex w-full max-w-(--thread-max-width) grow flex-col">
+    <div className="aui-thread-welcome-root mx-auto my-auto flex w-full max-w-[var(--thread-max-width)] grow flex-col px-4">
       <div className="aui-thread-welcome-center flex w-full grow flex-col items-center justify-center">
-        <div className="aui-thread-welcome-message flex size-full flex-col justify-center px-4">
+        <div className="aui-thread-welcome-message flex size-full flex-col justify-center">
           <h1 className="aui-thread-welcome-message-inner fade-in slide-in-from-bottom-1 animate-in font-bold text-4xl duration-200">
-            Salut ! 👋
+            {greeting}
           </h1>
           <p className="aui-thread-welcome-message-inner fade-in slide-in-from-bottom-1 animate-in text-muted-foreground delay-75 duration-200">
-            Je suis là pour t'aider dans tes cours
+            {welcomeMessage.subtext}
           </p>
         </div>
       </div>
@@ -214,10 +266,10 @@ const MessageError: FC = () => {
 const AssistantMessage: FC = () => {
   return (
     <MessagePrimitive.Root
-      className="aui-assistant-message-root fade-in slide-in-from-bottom-1 relative mx-auto w-full max-w-(--thread-max-width) animate-in py-3 duration-150"
+      className="aui-assistant-message-root fade-in slide-in-from-bottom-1 relative mx-auto w-full max-w-[var(--thread-max-width)] animate-in py-3 duration-150"
       data-role="assistant"
     >
-      <div className="aui-assistant-message-content wrap-break-word px-2 text-foreground leading-relaxed">
+      <div className="aui-assistant-message-content wrap-break-word px-4 text-foreground leading-relaxed">
         <MessagePrimitive.Parts
           components={{
             Text: MarkdownText,
@@ -227,7 +279,7 @@ const AssistantMessage: FC = () => {
         <MessageError />
       </div>
 
-      <div className="aui-assistant-message-footer mt-1 ml-2 flex">
+      <div className="aui-assistant-message-footer mt-1 ml-4 flex">
         <BranchPicker />
         <AssistantActionBar />
       </div>
@@ -270,7 +322,7 @@ const AssistantActionBar: FC = () => {
 const UserMessage: FC = () => {
   return (
     <MessagePrimitive.Root
-      className="aui-user-message-root fade-in slide-in-from-bottom-1 mx-auto grid w-full max-w-(--thread-max-width) animate-in auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] content-start gap-y-2 px-2 py-3 duration-150 [&:where(>*)]:col-start-2"
+      className="aui-user-message-root fade-in slide-in-from-bottom-1 mx-auto grid w-full max-w-[var(--thread-max-width)] animate-in auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] content-start gap-y-2 px-4 py-3 duration-150 [&:where(>*)]:col-start-2"
       data-role="user"
     >
       <UserMessageAttachments />
@@ -307,7 +359,7 @@ const UserActionBar: FC = () => {
 
 const EditComposer: FC = () => {
   return (
-    <MessagePrimitive.Root className="aui-edit-composer-wrapper mx-auto flex w-full max-w-(--thread-max-width) flex-col px-2 py-3">
+    <MessagePrimitive.Root className="aui-edit-composer-wrapper mx-auto flex w-full max-w-[var(--thread-max-width)] flex-col px-4 py-3">
       <ComposerPrimitive.Root className="aui-edit-composer-root ml-auto flex w-full max-w-[85%] flex-col rounded-2xl bg-muted">
         <ComposerPrimitive.Input
           className="aui-edit-composer-input min-h-14 w-full resize-none bg-transparent p-4 text-foreground text-sm outline-none"
@@ -336,7 +388,7 @@ const BranchPicker: FC<BranchPickerPrimitive.Root.Props> = ({
     <BranchPickerPrimitive.Root
       hideWhenSingleBranch
       className={cn(
-        "aui-branch-picker-root -ml-2 mr-2 inline-flex items-center text-muted-foreground text-xs",
+        "aui-branch-picker-root -ml-4 mr-4 inline-flex items-center text-muted-foreground text-xs",
         className,
       )}
       {...rest}

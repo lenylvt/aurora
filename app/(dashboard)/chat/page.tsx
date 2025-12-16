@@ -6,6 +6,8 @@ import { Thread } from "@/components/assistant-ui/thread";
 import { ChatRuntimeProvider } from "@/components/chat/runtime-provider";
 import { ToolkitsProvider } from "@/components/chat/toolkits-provider";
 import { AppSidebar } from "@/components/chat/app-sidebar";
+import { CommandMenu } from "@/components/chat/command-menu";
+import { SettingsDialog } from "@/components/settings/settings-dialog";
 import { getCurrentUser, signOut } from "@/lib/appwrite/client";
 import {
   getUserChats,
@@ -37,6 +39,9 @@ function ChatContent() {
   const [isLoadingChats, setIsLoadingChats] = useState(true);
   // Clé unique pour forcer le remontage du ChatRuntimeProvider
   const [conversationKey, setConversationKey] = useState<number>(Date.now());
+  // État pour le settings dialog
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<"profile" | "connections">("profile");
 
   useEffect(() => {
     getCurrentUser().then((userData) => {
@@ -109,6 +114,11 @@ function ChatContent() {
     }
   };
 
+  const handleOpenSettings = (tab: "profile" | "connections") => {
+    setSettingsTab(tab);
+    setSettingsOpen(true);
+  };
+
   // Trouver le titre du chat actuel
   const currentChat = currentChatId
     ? chats.find((c) => c.$id === currentChatId)
@@ -117,6 +127,17 @@ function ChatContent() {
   return (
     <SidebarProvider>
       <ToolkitsProvider>
+        <CommandMenu
+          chats={chats}
+          onNewChat={handleNewChat}
+          onChatSelect={handleChatSelect}
+          onOpenSettings={handleOpenSettings}
+        />
+        <SettingsDialog
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          defaultTab={settingsTab}
+        />
         <AppSidebar
           user={user}
           chats={chats}
@@ -157,7 +178,7 @@ function ChatContent() {
               onChatCreated={handleChatCreated}
             >
               <ErrorBoundary>
-                <Thread />
+                <Thread userName={user?.name} />
               </ErrorBoundary>
             </ChatRuntimeProvider>
           </div>

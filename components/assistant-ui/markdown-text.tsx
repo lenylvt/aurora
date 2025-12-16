@@ -12,11 +12,25 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { type FC, memo, useState } from "react";
-import { CheckIcon, CopyIcon } from "lucide-react";
+import { CheckIcon, CopyIcon, Loader2Icon } from "lucide-react";
+import dynamic from "next/dynamic";
 
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
-import { MermaidDiagram } from "@/components/assistant-ui/mermaid-diagram";
 import { cn } from "@/lib/utils";
+
+// Dynamic import for Mermaid to reduce initial bundle size
+const MermaidDiagram = dynamic(
+  () => import("@/components/assistant-ui/mermaid-diagram").then(mod => mod.MermaidDiagram),
+  {
+    loading: () => (
+      <div className="flex items-center justify-center p-8 rounded-lg bg-muted/50">
+        <Loader2Icon className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    ),
+    ssr: false,
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+) as any;
 
 // Preprocessing function to normalize LaTeX delimiters
 // Converts various LaTeX formats to standard $...$ and $$...$$ syntax for remark-math

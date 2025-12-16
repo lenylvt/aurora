@@ -178,7 +178,7 @@ STYLE:
 
 FORMATAGE (auto, jamais expliqué):
 Maths: \\(inline\\) ou $$block$$
-Mermaid: guillemets si caractères spéciaux A["Texte (date)"]
+Mermaid: guillemets OBLIGATOIRES A["Texte (date)"]
 Images/vidéos: markdown ![](url) ou [lien](url)
 
 RECHERCHE WEB:
