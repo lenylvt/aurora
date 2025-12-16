@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 
 // Human-readable names for tools
 const TOOL_NAMES: Record<string, string> = {
+  recherche_internet: "Recherche Internet",
   GEMINI_GENERATE_IMAGE: "Génération d'image",
   GEMINI_GENERATE_CONTENT: "Génération de texte",
   GEMINI_GENERATE_VIDEOS: "Génération de vidéo",

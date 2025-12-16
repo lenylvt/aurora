@@ -1,10 +1,12 @@
 import { NextRequest } from "next/server";
-import { streamText, convertToModelMessages, stepCountIs, type UIMessage } from "ai";
+import { streamText, convertToModelMessages, stepCountIs, tool, type UIMessage } from "ai";
+import { z } from "zod";
 import { groq } from "@ai-sdk/groq";
 import { getCurrentUserServer } from "@/lib/appwrite/server";
 import { getComposioTools, isComposioAvailable } from "@/lib/composio/client";
 import { getEnabledToolkitSlugs } from "@/lib/composio/config";
 import { optimizeMessageContext } from "@/lib/groq/context";
+import { searchWeb, formatSearchResults, isGoogleSearchAvailable } from "@/lib/search/google";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -110,6 +112,29 @@ export async function POST(req: NextRequest) {
       } catch (toolError) {
         console.warn("[Chat API] Composio tools not available:", toolError);
       }
+    }
+
+    // Add web search tool if configured
+    if (isGoogleSearchAvailable()) {
+      tools.recherche_internet = tool({
+        description: "Recherche sur internet pour obtenir des informations actuelles, récentes ou en temps réel. Utilise cet outil quand l'utilisateur demande des informations que tu ne connais pas ou qui nécessitent des données actualisées.",
+        inputSchema: z.object({
+          q: z.string().describe("La requête de recherche"),
+        }),
+        execute: async ({ q }) => {
+          console.log("[Web Search] Query:", q);
+          if (!q) {
+            return "Erreur: aucune requête de recherche fournie";
+          }
+          try {
+            const response = await searchWeb(q, 5);
+            return formatSearchResults(response);
+          } catch (error: any) {
+            console.error("[Web Search] Error:", error);
+            return `Erreur lors de la recherche: ${error.message}`;
+          }
+        },
+      });
     }
 
     // Select model based on whether we have images in the FULL conversation history
