@@ -1,54 +1,28 @@
 /**
  * Composio Configuration Loader
  * 
- * Loads and provides access to composio.config.json settings.
+ * Re-exports from the unified MCP config for backwards compatibility.
+ * Uses lib/mcp/config.ts as the source of truth.
  */
 
-import type { ComposioConfig, ComposioToolkitConfig } from "@/types/composio";
+// Re-export Composio functions from the unified MCP config
+export {
+    getComposioToolkits as getConfiguredToolkits,
+    getEnabledComposioToolkits as getEnabledToolkits,
+    getComposioToolkitById as getToolkitById,
+    getComposioToolkitBySlug as getToolkitBySlug,
+    getEnabledComposioToolkitSlugs as getEnabledToolkitSlugs,
+} from "@/lib/mcp/config";
 
-// Import the config file directly
-import config from "@/composio.config.json";
+// Re-export types
+export type { ComposioToolkitConfig } from "@/types/mcp";
 
-/**
- * Get the full Composio configuration
- */
-export function getComposioConfig(): ComposioConfig {
-    return config as ComposioConfig;
-}
+// For backwards compatibility, also export a getComposioConfig function
+import { getMCPConfig } from "@/lib/mcp/config";
+import { getComposioToolkits } from "@/lib/mcp/config";
 
-/**
- * Get all configured toolkits
- */
-export function getConfiguredToolkits(): ComposioToolkitConfig[] {
-    return config.toolkits as ComposioToolkitConfig[];
-}
-
-/**
- * Get only enabled toolkits
- */
-export function getEnabledToolkits(): ComposioToolkitConfig[] {
-    return getConfiguredToolkits().filter(t => t.enabled !== false);
-}
-
-/**
- * Get toolkit config by ID
- */
-export function getToolkitById(id: string): ComposioToolkitConfig | undefined {
-    return getConfiguredToolkits().find(t => t.id === id);
-}
-
-/**
- * Get toolkit config by toolkit slug
- */
-export function getToolkitBySlug(slug: string): ComposioToolkitConfig | undefined {
-    return getConfiguredToolkits().find(
-        t => t.toolkit.toUpperCase() === slug.toUpperCase()
-    );
-}
-
-/**
- * Get list of enabled toolkit slugs
- */
-export function getEnabledToolkitSlugs(): string[] {
-    return getEnabledToolkits().map(t => t.toolkit);
+export function getComposioConfig() {
+    return {
+        toolkits: getComposioToolkits(),
+    };
 }
