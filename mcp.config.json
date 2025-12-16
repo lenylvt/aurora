@@ -1,5 +1,4 @@
 {
-    "$schema": "./types/composio-config.schema.json",
     "toolkits": [
         {
             "id": "gemini",
@@ -18,5 +17,16 @@
             "enabled": true,
             "allowedTools": []
         }
-    ]
+    ],
+    "mcpServers": { 
+        "file-creator": {
+            "id": "file-creator",
+            "name": "File Creator",
+            "description": "File creator server",
+            "type": "http",
+            "url": "https://dl-ai.lenylvt.cc/mcp",
+            "enabled": true,
+            "headers": {}
+        }
+    }
 }

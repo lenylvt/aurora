@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
 
         if (!toolkitConfig.authConfigId) {
             return NextResponse.json(
-                { error: `No authConfigId configured for ${toolkit}. Add it in composio.config.json` },
+                { error: `No authConfigId configured for ${toolkit}. Add it in mcp.config.json` },
                 { status: 400 }
             );
         }

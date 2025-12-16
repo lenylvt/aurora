@@ -5,7 +5,7 @@
  */
 
 /**
- * Toolkit configuration for composio.config.json
+ * Toolkit configuration for mcp.config.json
  */
 export interface ComposioToolkitConfig {
     id: string;

@@ -1,0 +1,26 @@
+{
+    "toolkits": [
+        {
+            "id": "example",
+            "name": "Example Toolkit",
+            "toolkit": "EXAMPLE",
+            "description": "Description of the Composio toolkit",
+            "authConfigId": "YOUR_AUTH_CONFIG_ID",
+            "enabled": true,
+            "allowedTools": []
+        }
+    ],
+    "mcpServers": {
+        "example-server": {
+            "id": "example-server",
+            "name": "Example MCP Server",
+            "description": "An example MCP HTTP server",
+            "type": "http",
+            "url": "https://your-mcp-server.com/mcp",
+            "enabled": false,
+            "headers": {
+                "Authorization": "Bearer YOUR_API_KEY"
+            }
+        }
+    }
+}

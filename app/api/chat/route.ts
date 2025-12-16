@@ -5,6 +5,7 @@ import { groq } from "@ai-sdk/groq";
 import { getCurrentUserServer } from "@/lib/appwrite/server";
 import { getComposioTools, isComposioAvailable } from "@/lib/composio/client";
 import { getEnabledToolkitSlugs } from "@/lib/composio/config";
+import { getMCPTools, isMCPAvailable } from "@/lib/mcp/client";
 import { optimizeMessageContext } from "@/lib/groq/context";
 import { searchWeb, formatSearchResults, isGoogleSearchAvailable } from "@/lib/search/google";
 
@@ -95,22 +96,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get Composio tools for connected toolkits
+    // Get tools from all sources
     let tools: Record<string, any> = {};
 
+    // 1. Get Composio tools for connected toolkits
     if (isComposioAvailable()) {
       try {
-        // Get enabled toolkit slugs from config
         const enabledToolkits = getEnabledToolkitSlugs();
 
         if (enabledToolkits.length > 0) {
-          tools = await getComposioTools(user.$id, {
+          const composioTools = await getComposioTools(user.$id, {
             toolkits: enabledToolkits,
             limit: 50,
           });
+          tools = { ...tools, ...composioTools };
         }
       } catch (toolError) {
         console.warn("[Chat API] Composio tools not available:", toolError);
+      }
+    }
+
+    // 2. Get MCP HTTP server tools
+    if (isMCPAvailable()) {
+      try {
+        const mcpTools = await getMCPTools();
+        tools = { ...tools, ...mcpTools };
+        console.log(`[Chat API] Loaded ${Object.keys(mcpTools).length} MCP tools`);
+      } catch (mcpError) {
+        console.warn("[Chat API] MCP tools not available:", mcpError);
       }
     }
 
