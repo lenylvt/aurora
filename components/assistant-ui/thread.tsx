@@ -8,9 +8,7 @@ import { ToolFallback } from "@/components/assistant-ui/tool-fallback";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { LoadedMessages } from "@/components/chat/loaded-messages";
 import { MCPSelector } from "@/components/chat/mcp-selector";
-import type { Message } from "@/types";
 import {
   ActionBarPrimitive,
   AssistantIf,
@@ -34,11 +32,7 @@ import {
 } from "lucide-react";
 import type { FC } from "react";
 
-interface ThreadProps {
-  loadedMessages?: Message[];
-}
-
-export const Thread: FC<ThreadProps> = ({ loadedMessages = [] }) => {
+export const Thread: FC = () => {
   return (
     <ThreadPrimitive.Root
       className="aui-root aui-thread-root @container flex h-full flex-col bg-background relative"
@@ -50,12 +44,7 @@ export const Thread: FC<ThreadProps> = ({ loadedMessages = [] }) => {
         turnAnchor="bottom"
         className="aui-thread-viewport relative flex flex-1 flex-col overflow-y-scroll scroll-smooth px-4 pt-4 pb-32"
       >
-        {/* Messages chargés depuis Appwrite */}
-        {loadedMessages.length > 0 && (
-          <LoadedMessages messages={loadedMessages} />
-        )}
-
-        <AssistantIf condition={({ thread }) => thread.isEmpty && loadedMessages.length === 0}>
+        <AssistantIf condition={({ thread }) => thread.isEmpty}>
           <ThreadWelcome />
         </AssistantIf>
 

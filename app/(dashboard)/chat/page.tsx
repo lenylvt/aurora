@@ -117,10 +117,11 @@ function ChatContent() {
             <ChatRuntimeProvider
               key={conversationKey}
               currentChatId={currentChatId}
+              initialMessages={loadedMessages}
               onChatCreated={handleChatCreated}
             >
               <ErrorBoundary>
-                <Thread loadedMessages={loadedMessages} />
+                <Thread />
               </ErrorBoundary>
             </ChatRuntimeProvider>
           </div>
