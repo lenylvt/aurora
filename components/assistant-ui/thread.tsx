@@ -91,22 +91,28 @@ const ThreadScrollToBottom: FC = () => {
   );
 };
 
-const WELCOME_MESSAGES = [
-  {
-    greeting: "Salut ! 👋",
-    subtext: "Je suis là pour t'aider dans tes cours",
-  },
+const WELCOME_MESSAGES_TIME_BASED = [
   {
     greeting: "Bonjour {name} ! ☀️",
     subtext: "Prêt pour une nouvelle session ?",
-  },
-  {
-    greeting: "Bonsoir {name} ! 🌙",
-    subtext: "Comment puis-je t'aider ce soir ?",
+    timeRange: [6, 12] as const, // 6h-12h
   },
   {
     greeting: "Bonne après-midi ! ☕",
     subtext: "Besoin d'aide avec tes devoirs ?",
+    timeRange: [12, 18] as const, // 12h-18h
+  },
+  {
+    greeting: "Bonsoir {name} ! 🌙",
+    subtext: "Comment puis-je t'aider ce soir ?",
+    timeRange: [18, 23] as const, // 18h-23h
+  },
+] as const;
+
+const WELCOME_MESSAGES_ANYTIME = [
+  {
+    greeting: "Salut ! 👋",
+    subtext: "Je suis là pour t'aider dans tes cours",
   },
   {
     greeting: "Le retour de {name} ! 🎉",
@@ -127,10 +133,25 @@ interface ThreadWelcomeProps {
 }
 
 const ThreadWelcome: FC<ThreadWelcomeProps> = ({ userName }) => {
-  // Choisir un message de bienvenue aléatoire
+  // Choisir un message de bienvenue en fonction de l'heure
   const [welcomeMessage] = React.useState(() => {
-    const randomIndex = Math.floor(Math.random() * WELCOME_MESSAGES.length);
-    return WELCOME_MESSAGES[randomIndex];
+    const currentHour = new Date().getHours();
+
+    // Filtrer les messages basés sur l'heure
+    const timeBasedMessages = WELCOME_MESSAGES_TIME_BASED.filter((msg) => {
+      const [start, end] = msg.timeRange;
+      return currentHour >= start && currentHour < end;
+    });
+
+    // Combiner messages de l'heure + messages génériques
+    const availableMessages = [
+      ...timeBasedMessages.map(({ greeting, subtext }) => ({ greeting, subtext })),
+      ...WELCOME_MESSAGES_ANYTIME,
+    ];
+
+    // Choisir aléatoirement
+    const randomIndex = Math.floor(Math.random() * availableMessages.length);
+    return availableMessages[randomIndex];
   });
 
   const greeting = welcomeMessage.greeting.replace("{name}", userName || "toi");

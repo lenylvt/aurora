@@ -15,7 +15,7 @@
     "@assistant-ui/react": "^0.11.51",
     "@assistant-ui/react-ai-sdk": "1.1.3",
     "@assistant-ui/react-markdown": "^0.11.8",
-    "@composio/core": "^0.2.6",
+    "@composio/core": "^0.3.1",
     "@composio/vercel": "^0.2.18",
     "@hookform/resolvers": "^5.2.2",
     "@modelcontextprotocol/sdk": "^1.24.3",
