@@ -26,16 +26,21 @@ const MAX_CONTENT_LENGTH = 3000;
  * Check if Google Search is configured
  */
 export function isGoogleSearchAvailable(): boolean {
-    return !!(
+    const available = !!(
         process.env.GOOGLE_SEARCH_API_KEY &&
         process.env.GOOGLE_SEARCH_ENGINE_ID
     );
+    console.log(`[Google Search] isGoogleSearchAvailable: ${available}`);
+    return available;
 }
 
 /**
  * Fetch and extract text content from a URL
  */
 async function fetchPageContent(url: string): Promise<string> {
+    const startTime = Date.now();
+    console.log(`[Web Loader] Fetching content from: ${url}`);
+
     try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
@@ -50,10 +55,12 @@ async function fetchPageContent(url: string): Promise<string> {
         clearTimeout(timeout);
 
         if (!response.ok) {
+            console.log(`[Web Loader] ❌ HTTP error: ${response.status} for ${url}`);
             return "";
         }
 
         const html = await response.text();
+        console.log(`[Web Loader] Received ${html.length} bytes from ${url}`);
 
         // Extract text from HTML (simple extraction)
         let text = html
@@ -78,9 +85,10 @@ async function fetchPageContent(url: string): Promise<string> {
             text = text.substring(0, MAX_CONTENT_LENGTH) + "...";
         }
 
+        console.log(`[Web Loader] ✓ Extracted ${text.length} chars in ${Date.now() - startTime}ms`);
         return text;
-    } catch (error) {
-        console.error(`[Web Loader] Failed to fetch ${url}:`, error);
+    } catch (error: any) {
+        console.error(`[Web Loader] ❌ Failed to fetch ${url}: ${error.message} (${Date.now() - startTime}ms)`);
         return "";
     }
 }
@@ -96,10 +104,15 @@ export async function searchWeb(
     numResults: number = 5,
     loadContent: boolean = true
 ): Promise<SearchResponse> {
+    const startTime = Date.now();
+    console.log(`[Google Search] searchWeb called at ${new Date().toISOString()}`);
+    console.log(`[Google Search] Query: "${query}", Results: ${numResults}, LoadContent: ${loadContent}`);
+
     const apiKey = process.env.GOOGLE_SEARCH_API_KEY;
     const searchEngineId = process.env.GOOGLE_SEARCH_ENGINE_ID;
 
     if (!apiKey || !searchEngineId) {
+        console.error(`[Google Search] ❌ API not configured`);
         throw new Error("Google Search API not configured. Set GOOGLE_SEARCH_API_KEY and GOOGLE_SEARCH_ENGINE_ID.");
     }
 
@@ -110,15 +123,17 @@ export async function searchWeb(
         num: Math.min(numResults, 10).toString(),
     });
 
+    console.log(`[Google Search] Calling API...`);
     const response = await fetch(`${GOOGLE_SEARCH_API_URL}?${params}`);
 
     if (!response.ok) {
         const error = await response.text();
-        console.error("[Google Search] API error:", error);
+        console.error(`[Google Search] ❌ API error ${response.status}: ${error}`);
         throw new Error(`Google Search API error: ${response.status}`);
     }
 
     const data = await response.json();
+    console.log(`[Google Search] ✓ API returned ${data.items?.length || 0} results in ${Date.now() - startTime}ms`);
 
     const results: SearchResult[] = (data.items || []).map((item: any) => ({
         title: item.title,
@@ -138,10 +153,12 @@ export async function searchWeb(
         contents.forEach((content, i) => {
             if (content) {
                 results[i].content = content;
-                console.log(`[Web Loader] Loaded ${content.length} chars from ${results[i].url}`);
+                console.log(`[Web Loader] ✓ Loaded ${content.length} chars from ${results[i].url}`);
             }
         });
     }
+
+    console.log(`[Google Search] ✓ Search complete: ${results.length} results, ${results.filter(r => r.content).length} with content (${Date.now() - startTime}ms total)`);
 
     return {
         results,
@@ -154,7 +171,10 @@ export async function searchWeb(
  * Format search results for AI consumption (including loaded content)
  */
 export function formatSearchResults(response: SearchResponse): string {
+    console.log(`[Google Search] formatSearchResults: ${response.results.length} results`);
+
     if (response.results.length === 0) {
+        console.log(`[Google Search] No results to format`);
         return "Aucun résultat trouvé.";
     }
 
@@ -170,5 +190,7 @@ export function formatSearchResults(response: SearchResponse): string {
         })
         .join("\n\n---\n\n");
 
-    return `# Résultats de recherche (${response.results.length} sur ${response.totalResults})\n\n${formatted}`;
+    const output = `# Résultats de recherche (${response.results.length} sur ${response.totalResults})\n\n${formatted}`;
+    console.log(`[Google Search] Formatted output: ${output.length} chars`);
+    return output;
 }

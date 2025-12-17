@@ -68,8 +68,12 @@ class AssistantErrorBoundary extends Component<
 
 // Generate title
 async function generateTitle(message: string): Promise<string> {
+  console.log(`[Runtime Provider] generateTitle called at ${new Date().toISOString()}`);
+  console.log(`[Runtime Provider] Message preview: "${message.slice(0, 50)}..."`);
+
   try {
     const jwt = await getSessionJWT();
+    console.log(`[Runtime Provider] Sending title request...`);
     const res = await fetch("/api/title", {
       method: "POST",
       headers: {
@@ -78,10 +82,15 @@ async function generateTitle(message: string): Promise<string> {
       },
       body: JSON.stringify({ message }),
     });
-    if (!res.ok) return "Nouvelle conversation";
+    if (!res.ok) {
+      console.log(`[Runtime Provider] Title request failed: ${res.status}`);
+      return "Nouvelle conversation";
+    }
     const data = await res.json();
+    console.log(`[Runtime Provider] ✓ Title generated: "${data.title}"`);
     return data.title || "Nouvelle conversation";
-  } catch {
+  } catch (error: any) {
+    console.log(`[Runtime Provider] Title generation error: ${error.message}`);
     return "Nouvelle conversation";
   }
 }
@@ -126,10 +135,13 @@ export function ChatRuntimeProvider({
 
   // Load user
   useEffect(() => {
+    console.log(`[Runtime Provider] Loading user...`);
     getCurrentUser().then((userData) => {
       if (!userData) {
+        console.log(`[Runtime Provider] No user found, redirecting to login`);
         router.push("/login");
       } else {
+        console.log(`[Runtime Provider] ✓ User loaded: ${userData.$id} (${userData.email})`);
         setUser(userData);
       }
     });
@@ -137,6 +149,7 @@ export function ChatRuntimeProvider({
 
   // Update refs when props change
   useEffect(() => {
+    console.log(`[Runtime Provider] Props changed - chatId: ${currentChatId}, initialMessages: ${initialMessages.length}`);
     chatIdRef.current = currentChatId || null;
     savedMessagesRef.current.clear();
     initialMessages.forEach(msg => savedMessagesRef.current.add(msg.$id));
@@ -150,11 +163,17 @@ export function ChatRuntimeProvider({
 
   // Create transport with JWT - use AssistantChatTransport which supports custom fetch
   const transport = useMemo(() => {
+    console.log(`[Runtime Provider] Creating transport...`);
     return new AssistantChatTransport({
       api: "/api/chat",
       async fetch(url, options) {
+        console.log(`[Runtime Provider] Transport fetch: ${url}`);
         const jwt = await getSessionJWT();
-        if (!jwt) throw new Error("Session expirée");
+        if (!jwt) {
+          console.log(`[Runtime Provider] ❌ No JWT available`);
+          throw new Error("Session expirée");
+        }
+        console.log(`[Runtime Provider] ✓ JWT ready, sending request...`);
         return fetch(url, {
           ...options,
           headers: {
@@ -168,9 +187,11 @@ export function ChatRuntimeProvider({
 
   // Handle message finish
   const handleFinish = useCallback(async ({ message }: { message: UIMessage }) => {
+    console.log(`[Runtime Provider] handleFinish called for message: ${message.id}`);
     if (chatIdRef.current && !savedMessagesRef.current.has(message.id)) {
       const text = extractMessageText(message);
       if (text) {
+        console.log(`[Runtime Provider] Saving assistant message (${text.length} chars)...`);
         const result = await createOrUpdateMessage(
           chatIdRef.current,
           "assistant",
@@ -179,7 +200,9 @@ export function ChatRuntimeProvider({
         );
         if (result.success) {
           savedMessagesRef.current.add(message.id);
-          console.log("[Sync] Saved assistant message");
+          console.log(`[Runtime Provider] ✓ Assistant message saved`);
+        } else {
+          console.log(`[Runtime Provider] ❌ Failed to save assistant message`);
         }
       }
     }
@@ -214,6 +237,8 @@ export function ChatRuntimeProvider({
     const syncNewMessages = async () => {
       if (!user || chat.messages.length <= lastMessageCountRef.current) return;
 
+      console.log(`[Runtime Provider] Syncing new messages: ${lastMessageCountRef.current} -> ${chat.messages.length}`);
+
       for (let i = lastMessageCountRef.current; i < chat.messages.length; i++) {
         const msg = chat.messages[i];
         if (msg.role === "user" && !savedMessagesRef.current.has(msg.id)) {
@@ -222,18 +247,22 @@ export function ChatRuntimeProvider({
 
           // Create chat if needed
           if (!chatIdRef.current) {
+            console.log(`[Runtime Provider] Creating new chat...`);
             const chatId = crypto.randomUUID();
             const title = await generateTitle(text);
             const result = await createChat(user.$id, chatId, title);
             if (result.success) {
               chatIdRef.current = chatId;
               onChatCreated?.(chatId);
-              console.log("[Sync] Chat créé:", chatId);
+              console.log(`[Runtime Provider] ✓ Chat created: ${chatId}`);
+            } else {
+              console.log(`[Runtime Provider] ❌ Failed to create chat`);
             }
           }
 
           // Save user message
           if (chatIdRef.current) {
+            console.log(`[Runtime Provider] Saving user message (${text.length} chars)...`);
             const result = await createOrUpdateMessage(
               chatIdRef.current,
               "user",
@@ -242,7 +271,9 @@ export function ChatRuntimeProvider({
             );
             if (result.success) {
               savedMessagesRef.current.add(msg.id);
-              console.log("[Sync] Saved user message");
+              console.log(`[Runtime Provider] ✓ User message saved`);
+            } else {
+              console.log(`[Runtime Provider] ❌ Failed to save user message`);
             }
           }
         }

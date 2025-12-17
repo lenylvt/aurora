@@ -180,32 +180,47 @@ function limitImages(messages: UIMessage[]): UIMessage[] {
 }
 
 export async function POST(req: NextRequest) {
+  const requestStartTime = new Date();
+  console.log(`\n${"=".repeat(80)}`);
+  console.log(`[Chat API] ===== NEW REQUEST =====`);
+  console.log(`[Chat API] Timestamp: ${requestStartTime.toISOString()}`);
+
   try {
+    console.log(`[Chat API] Authenticating user...`);
     const user = await getCurrentUserServer();
 
     if (!user) {
+      console.log(`[Chat API] ❌ Authentication failed - no user found`);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { "Content-Type": "application/json" },
       });
     }
+    console.log(`[Chat API] ✓ User authenticated: ${user.$id} (${user.email})`);
 
+    console.log(`[Chat API] Parsing request body...`);
     const { messages }: ChatRequest = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
+      console.log(`[Chat API] ❌ Invalid request - messages missing or not array`);
       return new Response(
         JSON.stringify({ error: "Messages are required" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
+    console.log(`[Chat API] ✓ Received ${messages.length} messages`);
+    console.log(`[Chat API] Last message role: ${messages[messages.length - 1]?.role}`);
 
     // Get tools from all sources
     let tools: Record<string, any> = {};
+    console.log(`[Chat API] Loading tools...`);
 
     // 1. Get Composio tools for connected toolkits
     if (isComposioAvailable()) {
+      console.log(`[Chat API] Composio available, fetching tools...`);
       try {
         const enabledToolkits = getEnabledToolkitSlugs();
+        console.log(`[Chat API] Enabled toolkits: ${enabledToolkits.join(", ") || "none"}`);
 
         if (enabledToolkits.length > 0) {
           const composioTools = await getComposioTools(user.$id, {
@@ -213,48 +228,63 @@ export async function POST(req: NextRequest) {
             limit: 50,
           });
           tools = { ...tools, ...composioTools };
+          console.log(`[Chat API] ✓ Loaded ${Object.keys(composioTools).length} Composio tools`);
         }
       } catch (toolError) {
-        console.warn("[Chat API] Composio tools not available:", toolError);
+        console.warn("[Chat API] ⚠ Composio tools not available:", toolError);
       }
+    } else {
+      console.log(`[Chat API] Composio not available (no API key)`);
     }
 
     // 2. Get MCP HTTP server tools
     if (isMCPAvailable()) {
+      console.log(`[Chat API] MCP available, fetching tools...`);
       try {
         const mcpTools = await getMCPTools();
         tools = { ...tools, ...mcpTools };
-        console.log(`[Chat API] Loaded ${Object.keys(mcpTools).length} MCP tools`);
+        console.log(`[Chat API] ✓ Loaded ${Object.keys(mcpTools).length} MCP tools`);
       } catch (mcpError) {
-        console.warn("[Chat API] MCP tools not available:", mcpError);
+        console.warn("[Chat API] ⚠ MCP tools not available:", mcpError);
       }
+    } else {
+      console.log(`[Chat API] MCP not available (no servers configured)`);
     }
 
     // Add web search tool if configured
     if (isGoogleSearchAvailable()) {
+      console.log(`[Chat API] ✓ Google Search available, adding tool`);
       tools.recherche_internet = tool({
         description: "Recherche sur internet pour obtenir des informations actuelles, récentes ou en temps réel. Utilise cet outil quand l'utilisateur demande des informations que tu ne connais pas ou qui nécessitent des données actualisées.",
         inputSchema: z.object({
           q: z.string().describe("La requête de recherche"),
         }),
         execute: async ({ q }) => {
+          console.log(`[Web Search] Executing search at ${new Date().toISOString()}`);
           console.log("[Web Search] Query:", q);
           if (!q) {
+            console.log("[Web Search] ❌ No query provided");
             return "Erreur: aucune requête de recherche fournie";
           }
           try {
+            const searchStart = Date.now();
             const response = await searchWeb(q, 5);
+            console.log(`[Web Search] ✓ Search completed in ${Date.now() - searchStart}ms`);
+            console.log(`[Web Search] Results: ${response.results.length} / ${response.totalResults} total`);
             return formatSearchResults(response);
           } catch (error: any) {
-            console.error("[Web Search] Error:", error);
+            console.error("[Web Search] ❌ Error:", error);
             return `Erreur lors de la recherche: ${error.message}`;
           }
         },
       });
+    } else {
+      console.log(`[Chat API] Google Search not available (no API key)`);
     }
 
     // Add Supadata web scraping tool if configured
     if (isSupadataAvailable()) {
+      console.log(`[Chat API] ✓ Supadata available, adding tools`);
       /*tools.lire_page_web = tool({
         description: "Lit et extrait le contenu complet d'une page web. Utilise cet outil quand l'utilisateur te donne une URL spécifique et veut que tu lises ou analyses son contenu.",
         inputSchema: z.object({
@@ -282,45 +312,62 @@ export async function POST(req: NextRequest) {
           lang: z.string().optional().describe("Code de langue optionnel (ex: 'fr', 'en')"),
         }),
         execute: async ({ url, lang }) => {
-          console.log("[Supadata] Transcribing video:", url);
+          console.log(`[Supadata] Transcribing video at ${new Date().toISOString()}`);
+          console.log("[Supadata] URL:", url, "| Lang:", lang || "auto");
           if (!url) {
+            console.log("[Supadata] ❌ No URL provided");
             return "Erreur: aucune URL fournie";
           }
           try {
+            const transcriptStart = Date.now();
             const transcript = await getTranscript(url, { lang, text: true });
+            console.log(`[Supadata] ✓ Transcription completed in ${Date.now() - transcriptStart}ms`);
+            console.log(`[Supadata] Transcript length: ${transcript.length} chars`);
             return `# Transcription de la vidéo\n\n${transcript}`;
           } catch (error: any) {
-            console.error("[Supadata] Transcript error:", error);
+            console.error("[Supadata] ❌ Transcript error:", error);
             return `Erreur lors de la transcription: ${error.message}`;
           }
         },
       });
+    } else {
+      console.log(`[Chat API] Supadata not available (no API key)`);
     }
 
     // Select model based on whether we have images in the FULL conversation history
     // Check BEFORE optimization to ensure we detect images even if they were optimized out
     const containsImages = hasImages(messages);
+    console.log(`[Chat API] Images detected: ${containsImages}`);
 
     // Optimize message context to reduce API usage
+    console.log(`[Chat API] Optimizing message context...`);
     let optimizedMessages = optimizeMessageContext(messages);
+    console.log(`[Chat API] ✓ Messages optimized: ${messages.length} → ${optimizedMessages.length}`);
 
     // Limit images to MAX_IMAGES (5) to prevent model errors
     if (containsImages) {
+      console.log(`[Chat API] Limiting images to ${MAX_IMAGES}...`);
       optimizedMessages = limitImages(optimizedMessages);
     }
 
     const selectedModel = containsImages ? VISION_MODEL : MODELS[0];
+    console.log(`[Chat API] Model selected: ${selectedModel}`);
 
     // Convert messages to model messages format
+    console.log(`[Chat API] Converting to model messages format...`);
     let modelMessages = convertToModelMessages(optimizedMessages);
 
     // Remove reasoning only for vision model (not supported)
     if (containsImages) {
+      console.log(`[Chat API] Removing reasoning (vision model)`);
       modelMessages = modelMessages.map(removeReasoning);
     }
 
     // Build system prompt with available tools
     const toolNames = Object.keys(tools);
+    console.log(`[Chat API] Total tools: ${toolNames.length}`);
+    console.log(`[Chat API] Tool names: ${toolNames.join(", ") || "none"}`);
+
     let systemPrompt = `
 Tu es Aurora, IA d'aide scolaire pour lycéens. Français.
 
@@ -338,6 +385,7 @@ RECHERCHE WEB:
 - Si infos actuelles nécessaires uniquement
 - Synthétise le contenu chargé (3 premiers sites)
 - Cite sources brièvement en fin
+- Tu es NE doit PAS fair de plus de 2 recherches par message
 
 ÉVITER:
 - Intros/répétitions/conclusions bateau
@@ -391,6 +439,10 @@ ${toolNames.length > 20 ? `\n...(et ${toolNames.length - 20} autres outils)` : '
 Utilise ces outils quand c'est pertinent pour répondre aux demandes de l'utilisateur.`;
     }
 
+    console.log(`[Chat API] System prompt length: ${systemPrompt.length} chars`);
+    console.log(`[Chat API] Starting stream with Groq...`);
+    const streamStartTime = Date.now();
+
     // Stream the response using Vercel AI SDK
     const result = streamText({
       model: groq(selectedModel),
@@ -401,11 +453,15 @@ Utilise ces outils quand c'est pertinent pour répondre aux demandes de l'utilis
       temperature: 0.7,
     });
 
+    console.log(`[Chat API] Stream created, returning response...`);
+    console.log(`[Chat API] Total setup time: ${Date.now() - requestStartTime.getTime()}ms`);
+
     // Return the UI message stream response
     return result.toUIMessageStreamResponse({
       originalMessages: optimizedMessages,
       onError: (error) => {
-        console.error("[Chat API] Stream error:", error);
+        console.error(`[Chat API] ❌ Stream error at ${new Date().toISOString()}:`, error);
+        console.error(`[Chat API] Stream duration before error: ${Date.now() - streamStartTime}ms`);
         if (error == null) {
           return "Erreur inconnue";
         }
@@ -419,7 +475,8 @@ Utilise ces outils quand c'est pertinent pour répondre aux demandes de l'utilis
       },
     });
   } catch (error: any) {
-    console.error("Chat API error:", error);
+    console.error(`[Chat API] ❌ Fatal error at ${new Date().toISOString()}:`, error);
+    console.error(`[Chat API] Stack:`, error.stack);
     return new Response(
       JSON.stringify({ error: error.message || "Internal server error" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

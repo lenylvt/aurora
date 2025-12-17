@@ -21,7 +21,8 @@ export const CONTEXT_CONFIG = {
  * Estime le nombre de tokens à partir du nombre de caractères
  */
 function estimateTokens(charCount: number): number {
-  return Math.ceil(charCount / CONTEXT_CONFIG.CHARS_PER_TOKEN);
+  const tokens = Math.ceil(charCount / CONTEXT_CONFIG.CHARS_PER_TOKEN);
+  return tokens;
 }
 
 /**
@@ -54,13 +55,21 @@ function getMessageSize(message: UIMessage): number {
  * 3. Limite le nombre total de tokens
  */
 export function optimizeMessageContext(messages: UIMessage[]): UIMessage[] {
+  const startTime = Date.now();
+  console.log(`[Context] optimizeMessageContext called at ${new Date().toISOString()}`);
+  console.log(`[Context] Input: ${messages.length} messages`);
+  console.log(`[Context] Config: MAX_MESSAGES=${CONTEXT_CONFIG.MAX_MESSAGES}, KEEP_INITIAL=${CONTEXT_CONFIG.KEEP_INITIAL_MESSAGES}, MAX_TOKENS=${CONTEXT_CONFIG.MAX_CONTEXT_TOKENS}`);
+
   // Si peu de messages, retourner tous
   if (messages.length <= CONTEXT_CONFIG.MAX_MESSAGES) {
+    console.log(`[Context] ✓ No optimization needed (${messages.length} <= ${CONTEXT_CONFIG.MAX_MESSAGES})`);
     return messages;
   }
 
+  console.log(`[Context] Optimization required...`);
   const initialMessages = messages.slice(0, CONTEXT_CONFIG.KEEP_INITIAL_MESSAGES);
   const recentMessages = messages.slice(-CONTEXT_CONFIG.MAX_MESSAGES + CONTEXT_CONFIG.KEEP_INITIAL_MESSAGES);
+  console.log(`[Context] Keeping ${initialMessages.length} initial + ${recentMessages.length} recent messages`);
 
   // Combine initial + récents
   const optimizedMessages = [
@@ -79,6 +88,7 @@ export function optimizeMessageContext(messages: UIMessage[]): UIMessage[] {
 
     // Si ajouter ce message dépasse la limite, arrête
     if (totalTokens + msgTokens > CONTEXT_CONFIG.MAX_CONTEXT_TOKENS && finalMessages.length > 0) {
+      console.log(`[Context] Token limit reached at message ${i} (${totalTokens} + ${msgTokens} > ${CONTEXT_CONFIG.MAX_CONTEXT_TOKENS})`);
       break;
     }
 
@@ -86,7 +96,7 @@ export function optimizeMessageContext(messages: UIMessage[]): UIMessage[] {
     totalTokens += msgTokens;
   }
 
-  console.log(`[Context] Optimized: ${messages.length} → ${finalMessages.length} messages (~${totalTokens} tokens)`);
+  console.log(`[Context] ✓ Optimized: ${messages.length} → ${finalMessages.length} messages (~${totalTokens} tokens) in ${Date.now() - startTime}ms`);
 
   return finalMessages;
 }
@@ -96,7 +106,9 @@ export function optimizeMessageContext(messages: UIMessage[]): UIMessage[] {
  * (Pour future implémentation si besoin)
  */
 export function summarizeHistory(messages: UIMessage[]): string {
+  console.log(`[Context] summarizeHistory called with ${messages.length} messages`);
   const userMessages = messages.filter(m => m.role === 'user');
+  console.log(`[Context] Found ${userMessages.length} user messages`);
   const topics = new Set<string>();
 
   userMessages.forEach(msg => {
@@ -110,7 +122,12 @@ export function summarizeHistory(messages: UIMessage[]): string {
     }
   });
 
-  if (topics.size === 0) return '';
+  if (topics.size === 0) {
+    console.log(`[Context] No topics extracted`);
+    return '';
+  }
 
-  return `Contexte de la conversation précédente: ${Array.from(topics).slice(0, 3).join(', ')}`;
+  const summary = `Contexte de la conversation précédente: ${Array.from(topics).slice(0, 3).join(', ')}`;
+  console.log(`[Context] Summary: "${summary}"`);
+  return summary;
 }
