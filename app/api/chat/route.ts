@@ -252,21 +252,34 @@ export async function POST(req: NextRequest) {
     }
 
     // Add web search tool if configured
+    const MAX_SEARCHES_PER_REQUEST = 2;
+    let searchCount = 0;
+
     if (isGoogleSearchAvailable()) {
-      console.log(`[Chat API] ✓ Google Search available, adding tool`);
+      console.log(`[Chat API] ✓ Google Search available, adding tool (max ${MAX_SEARCHES_PER_REQUEST} per request)`);
       tools.recherche_internet = tool({
-        description: "Recherche sur internet pour obtenir des informations actuelles, récentes ou en temps réel. Utilise cet outil quand l'utilisateur demande des informations que tu ne connais pas ou qui nécessitent des données actualisées.",
+        description: "Recherche sur internet pour obtenir des informations actuelles, récentes ou en temps réel. Utilise cet outil quand l'utilisateur demande des informations que tu ne connais pas ou qui nécessitent des données actualisées. LIMITE: Maximum 3 recherches par message.",
         inputSchema: z.object({
           q: z.string().describe("La requête de recherche"),
         }),
         execute: async ({ q }) => {
           console.log(`[Web Search] Executing search at ${new Date().toISOString()}`);
           console.log("[Web Search] Query:", q);
+          console.log(`[Web Search] Search count: ${searchCount + 1}/${MAX_SEARCHES_PER_REQUEST}`);
+
+          // Check search limit
+          if (searchCount >= MAX_SEARCHES_PER_REQUEST) {
+            console.log("[Web Search] ❌ Search limit reached");
+            return "Limite de recherches atteinte (3 maximum par message). Utilise les résultats déjà obtenus pour répondre.";
+          }
+
           if (!q) {
             console.log("[Web Search] ❌ No query provided");
             return "Erreur: aucune requête de recherche fournie";
           }
+
           try {
+            searchCount++;
             const searchStart = Date.now();
             const response = await searchWeb(q, 5);
             console.log(`[Web Search] ✓ Search completed in ${Date.now() - searchStart}ms`);
