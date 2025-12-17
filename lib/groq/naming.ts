@@ -10,9 +10,7 @@ console.log(`[Groq Naming] ✓ Client initialized, API key present: ${!!process.
 
 // Models to try in order of preference
 const TITLE_MODELS = [
-  "llama-3.3-70b-versatile",
-  "llama-3.1-8b-instant",
-  "gemma2-9b-it",
+  "llama-3.1-8b-instant"
 ];
 
 export async function generateConversationTitle(userMessage: string): Promise<string> {

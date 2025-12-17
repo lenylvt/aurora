@@ -6,7 +6,7 @@
             "toolkit": "GEMINI",
             "description": "Génération d'images et de vidéos",
             "enabled": true,
-            "allowedTools": []
+            "allowedTools": [ "GEMINI_GENERATE_IMAGE", "GEMINI_GENERATE_VIDEOS", "GEMINI_GET_VIDEOS_OPERATION", "GEMINI_WAIT_FOR_VIDEO" ]
         }
     ],
     "mcpServers": { 

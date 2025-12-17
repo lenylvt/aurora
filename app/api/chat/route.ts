@@ -4,11 +4,12 @@ import { z } from "zod";
 import { groq } from "@ai-sdk/groq";
 import { getCurrentUserServer } from "@/lib/appwrite/server";
 import { getComposioTools, isComposioAvailable } from "@/lib/composio/client";
-import { getEnabledToolkitSlugs } from "@/lib/composio/config";
+import { getEnabledToolkitSlugs, getAllowedToolsForToolkits } from "@/lib/composio/config";
 import { getMCPTools, isMCPAvailable } from "@/lib/mcp/client";
 import { optimizeMessageContext } from "@/lib/groq/context";
 import { searchWeb, formatSearchResults, isGoogleSearchAvailable } from "@/lib/search/google";
 import { isSupadataAvailable, scrapeWebContent, getTranscript } from "@/lib/supadata/client";
+import { getTranslation, getSynonyms, getConjugation, getAntonyms, isReversoAvailable } from "@/lib/reverso/client";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -219,17 +220,34 @@ export async function POST(req: NextRequest) {
     if (isComposioAvailable()) {
       console.log(`[Chat API] Composio available, fetching tools...`);
       try {
-        const enabledToolkits = getEnabledToolkitSlugs();
-        console.log(`[Chat API] Enabled toolkits: ${enabledToolkits.join(", ") || "none"}`);
+        const allowedConfig = getAllowedToolsForToolkits();
+        console.log(`[Chat API] Allowed tools config: hasFilter=${allowedConfig.hasFilter}, tools=${allowedConfig.tools.length}, toolkits=${allowedConfig.toolkits.length}`);
 
-        if (enabledToolkits.length > 0) {
-          const composioTools = await getComposioTools(user.$id, {
-            toolkits: enabledToolkits,
-            limit: 50,
+        // Fetch specific tools if configured, or all tools from toolkits without filter
+        let composioTools: Record<string, any> = {};
+
+        // First, get specific tools if any are configured
+        if (allowedConfig.tools.length > 0) {
+          console.log(`[Chat API] Fetching specific tools: ${allowedConfig.tools.join(", ")}`);
+          const specificTools = await getComposioTools(user.$id, {
+            tools: allowedConfig.tools,
           });
-          tools = { ...tools, ...composioTools };
-          console.log(`[Chat API] ✓ Loaded ${Object.keys(composioTools).length} Composio tools`);
+          composioTools = { ...composioTools, ...specificTools };
+          console.log(`[Chat API] ✓ Loaded ${Object.keys(specificTools).length} specific Composio tools`);
         }
+
+        // Then, get all tools from toolkits that don't have a filter
+        if (allowedConfig.toolkits.length > 0) {
+          console.log(`[Chat API] Fetching all tools from toolkits: ${allowedConfig.toolkits.join(", ")}`);
+          const toolkitTools = await getComposioTools(user.$id, {
+            toolkits: allowedConfig.toolkits,
+          });
+          composioTools = { ...composioTools, ...toolkitTools };
+          console.log(`[Chat API] ✓ Loaded ${Object.keys(toolkitTools).length} toolkit Composio tools`);
+        }
+
+        tools = { ...tools, ...composioTools };
+        console.log(`[Chat API] ✓ Total Composio tools: ${Object.keys(composioTools).length}`);
       } catch (toolError) {
         console.warn("[Chat API] ⚠ Composio tools not available:", toolError);
       }
@@ -347,6 +365,279 @@ export async function POST(req: NextRequest) {
       console.log(`[Chat API] Supadata not available (no API key)`);
     }
 
+    // Add preview_link tool for Tool UI demonstration
+    tools.preview_link = tool({
+      description: "Affiche un aperçu visuel d'un lien URL sous forme de carte. Utilise cet outil quand l'utilisateur demande de prévisualiser ou d'afficher un lien.",
+      inputSchema: z.object({
+        url: z.string().url().describe("L'URL à prévisualiser"),
+        title: z.string().optional().describe("Titre optionnel pour la carte"),
+        description: z.string().optional().describe("Description optionnelle"),
+      }),
+      execute: async ({ url, title, description }) => {
+        console.log(`[Preview Link] Creating preview for: ${url}`);
+        try {
+          const urlObj = new URL(url);
+          const domain = urlObj.hostname.replace(/^www\./, "");
+
+          return {
+            id: `link-preview-${Date.now()}`,
+            assetId: url,
+            kind: "link" as const,
+            href: url,
+            title: title || `Lien vers ${domain}`,
+            description: description || `Contenu de ${domain}`,
+            domain,
+          };
+        } catch (error: any) {
+          console.error("[Preview Link] ❌ Error:", error);
+          return {
+            id: `link-preview-error-${Date.now()}`,
+            assetId: url,
+            kind: "link" as const,
+            href: url,
+            title: "Lien",
+            description: `Erreur: ${error.message}`,
+          };
+        }
+      },
+    });
+    console.log(`[Chat API] ✓ Added preview_link tool`);
+
+    // Add show_chart tool
+    tools.show_chart = tool({
+      description: "Affiche des données sous forme de graphique (barres ou lignes). Utilise cet outil pour visualiser des tendances, comparaisons ou données numériques.",
+      inputSchema: z.object({
+        type: z.enum(["bar", "line"]).describe("Type de graphique"),
+        title: z.string().describe("Titre du graphique"),
+        description: z.string().optional().describe("Description optionnelle"),
+        data: z.array(z.record(z.string(), z.unknown())).describe("Données à afficher"),
+        xKey: z.string().describe("Clé pour l'axe X"),
+        series: z.array(z.object({
+          key: z.string(),
+          label: z.string(),
+        })).describe("Séries de données à afficher"),
+        showLegend: z.boolean().optional().describe("Afficher la légende"),
+        showGrid: z.boolean().optional().describe("Afficher la grille"),
+      }),
+      execute: async (args) => {
+        console.log(`[Show Chart] Creating chart: ${args.title}`);
+        return {
+          id: `chart-${Date.now()}`,
+          ...args,
+        };
+      },
+    });
+    console.log(`[Chat API] ✓ Added show_chart tool`);
+
+    // Add show_table tool
+    tools.show_table = tool({
+      description: "Affiche des données sous forme de tableau triable. Utilise cet outil pour les listes, résultats de recherche ou données structurées.",
+      inputSchema: z.object({
+        columns: z.array(z.object({
+          key: z.string(),
+          label: z.string(),
+          format: z.object({
+            kind: z.enum(["text", "number", "currency", "date", "status", "badge"]),
+          }).optional(),
+          align: z.enum(["left", "right", "center"]).optional(),
+        })).describe("Colonnes du tableau"),
+        data: z.array(z.record(z.string(), z.unknown())).describe("Données à afficher"),
+      }),
+      execute: async ({ columns, data }) => {
+        console.log(`[Show Table] Creating table with ${data.length} rows`);
+        return {
+          id: `table-${Date.now()}`,
+          columns,
+          data,
+        };
+      },
+    });
+    console.log(`[Chat API] ✓ Added show_table tool`);
+
+    // Add show_code tool
+    tools.show_code = tool({
+      description: "Affiche du code avec coloration syntaxique. Utilise cet outil pour les exemples de code, scripts ou configurations.",
+      inputSchema: z.object({
+        code: z.string().describe("Le code à afficher"),
+        language: z.string().describe("Langage de programmation (typescript, python, bash, etc.)"),
+        filename: z.string().optional().describe("Nom du fichier"),
+        highlightLines: z.array(z.number()).optional().describe("Lignes à mettre en évidence"),
+      }),
+      execute: async (args) => {
+        console.log(`[Show Code] Creating code block: ${args.language}`);
+        return {
+          id: `code-${Date.now()}`,
+          ...args,
+        };
+      },
+    });
+    console.log(`[Chat API] ✓ Added show_code tool`);
+
+    // Add show_media tool for images, videos, audio
+    tools.show_media = tool({
+      description: "Affiche un média (image, vidéo, audio) avec un titre et une description. Utilise cet outil après avoir généré ou récupéré un média.",
+      inputSchema: z.object({
+        kind: z.enum(["image", "video", "audio"]).describe("Type de média"),
+        src: z.string().url().describe("URL du média"),
+        title: z.string().describe("Titre du média"),
+        description: z.string().optional().describe("Description ou contexte"),
+        alt: z.string().optional().describe("Texte alternatif pour les images"),
+        ratio: z.enum(["auto", "1:1", "4:3", "16:9", "9:16"]).optional().describe("Ratio d'aspect"),
+      }),
+      execute: async (args) => {
+        console.log(`[Show Media] Creating media card: ${args.kind} - ${args.title}`);
+        return {
+          id: `media-${Date.now()}`,
+          assetId: `asset-${Date.now()}`,
+          ...args,
+          alt: args.alt || args.title,
+        };
+      },
+    });
+    console.log(`[Chat API] ✓ Added show_media tool`);
+
+    // Add show_options tool - NO execute function means human-in-the-loop
+    // Frontend will call addResult when user selects an option
+    tools.show_options = tool({
+      description: "Présente une liste d'options à l'utilisateur pour faire un choix. L'utilisateur DOIT sélectionner une option. Attends sa réponse.",
+      inputSchema: z.object({
+        options: z.array(z.object({
+          id: z.string(),
+          label: z.string(),
+          description: z.string().optional(),
+        })).describe("Liste des options"),
+        selectionMode: z.enum(["single", "multi"]).optional().describe("Mode de sélection"),
+      }),
+      // No execute function - this is a human-in-the-loop tool
+    });
+    console.log(`[Chat API] ✓ Added show_options tool (human-in-the-loop)`);
+
+    // Add Reverso translation/synonyms/conjugation tools
+    if (isReversoAvailable()) {
+      console.log(`[Chat API] ✓ Reverso available, adding tools`);
+
+      // Translation tool - AI generates translation and examples
+      tools.afficher_traduction = tool({
+        description: "Affiche une traduction avec exemples de contexte. IMPORTANT: Tu dois d'abord TRADUIRE toi-même le texte ET générer 3-5 exemples de phrases utilisant ce mot/expression dans les deux langues, puis appeler cet outil. Fonctionne pour TOUTES les langues.",
+        inputSchema: z.object({
+          text: z.string().describe("Le texte original"),
+          source: z.string().describe("Code de langue source (fr, en, es, de, it, etc.)"),
+          target: z.string().describe("Code de langue cible (fr, en, es, de, it, etc.)"),
+          translations: z.array(z.string()).describe("Liste de 2-5 traductions alternatives que tu as générées"),
+          examples: z.array(z.object({
+            source: z.string().describe("Phrase d'exemple dans la langue source"),
+            target: z.string().describe("Traduction de la phrase d'exemple"),
+          })).optional().describe("3-5 exemples d'utilisation dans les deux langues que tu as générés"),
+        }),
+        // No execute - AI provides the data directly
+      });
+
+      // Synonyms tool - Hybrid: API for French, AI for other languages
+      tools.afficher_synonymes = tool({
+        description: "Affiche une liste visuelle de synonymes. FRANÇAIS: appelle l'outil avec synonyms vide, l'API sera utilisée automatiquement. AUTRES LANGUES: Tu dois GÉNÉRER toi-même 15-20 synonymes pertinents, puis appeler cet outil.",
+        inputSchema: z.object({
+          text: z.string().describe("Le mot original"),
+          language: z.string().describe("Code de langue (fr, en, es, de, etc.)"),
+          synonyms: z.array(z.object({
+            id: z.number(),
+            synonym: z.string(),
+          })).optional().describe("Liste de synonymes (laisse vide/undefined pour français, génère pour autres langues)"),
+        }),
+        execute: async ({ text, language, synonyms }) => {
+          // French - use API
+          if (language === "fr" || language === "french") {
+            console.log(`[Synonymes] Using API for French word: "${text}"`);
+            try {
+              const result = await getSynonyms(text, language);
+              if (!result.ok) {
+                return { error: result.message };
+              }
+              return {
+                id: `synonyms-${Date.now()}`,
+                text: result.text,
+                source: result.source,
+                synonyms: result.synonyms,
+              };
+            } catch (error: any) {
+              console.error("[Synonymes] ❌ API error:", error);
+              return { error: error.message };
+            }
+          }
+
+          // Other languages - use AI-generated data
+          console.log(`[Synonymes] Using AI-generated data for "${text}" in ${language}`);
+          return {
+            id: `synonyms-${Date.now()}`,
+            text,
+            source: language,
+            synonyms: synonyms || [],
+          };
+        },
+      });
+
+      // Conjugation tool - AI generates for all languages
+      tools.afficher_conjugaison = tool({
+        description: "Affiche la conjugaison complète d'un verbe. IMPORTANT: Tu dois d'abord GÉNÉRER toi-même toutes les conjugaisons du verbe dans tous les temps/modes pertinents pour la langue, puis appeler cet outil pour les afficher. Fonctionne pour TOUTES les langues.",
+        inputSchema: z.object({
+          infinitive: z.string().describe("Le verbe à l'infinitif"),
+          language: z.string().describe("Code de langue (fr, en, es, de, it, etc.)"),
+          verbForms: z.array(z.object({
+            id: z.number(),
+            conjugation: z.string().describe("Nom du temps/mode (ex: Présent, Imparfait, Present Simple, etc.)"),
+            verbs: z.array(z.string()).describe("Formes conjuguées pour ce temps"),
+          })).describe("Liste complète des conjugaisons que tu as générées"),
+        }),
+        // No execute - AI provides the data directly
+      });
+
+      // Antonyms tool - Hybrid: API for French, AI for other languages
+      tools.afficher_antonymes = tool({
+        description: "Affiche une liste visuelle d'antonymes (contraires). FRANÇAIS: appelle l'outil avec antonyms vide, l'API sera utilisée automatiquement. AUTRES LANGUES: Tu dois GÉNÉRER toi-même 10-15 antonymes pertinents, puis appeler cet outil.",
+        inputSchema: z.object({
+          text: z.string().describe("Le mot original"),
+          language: z.string().describe("Code de langue (fr, en, es, de, etc.)"),
+          antonyms: z.array(z.object({
+            id: z.number(),
+            antonym: z.string(),
+          })).optional().describe("Liste d'antonymes (laisse vide/undefined pour français, génère pour autres langues)"),
+        }),
+        execute: async ({ text, language, antonyms }) => {
+          // French - use API
+          if (language === "fr" || language === "french") {
+            console.log(`[Antonymes] Using API for French word: "${text}"`);
+            try {
+              const result = await getAntonyms(text, language);
+              if (!result.ok) {
+                return { error: result.message };
+              }
+              return {
+                id: `antonyms-${Date.now()}`,
+                text: result.text,
+                source: result.source,
+                antonyms: result.antonyms,
+              };
+            } catch (error: any) {
+              console.error("[Antonymes] ❌ API error:", error);
+              return { error: error.message };
+            }
+          }
+
+          // Other languages - use AI-generated data
+          console.log(`[Antonymes] Using AI-generated data for "${text}" in ${language}`);
+          return {
+            id: `antonyms-${Date.now()}`,
+            text,
+            source: language,
+            antonyms: antonyms || [],
+          };
+        },
+      });
+
+      console.log(`[Chat API] ✓ Added language tools (afficher_traduction, afficher_synonymes, afficher_conjugaison, afficher_antonymes)`);
+    } else {
+      console.log(`[Chat API] Reverso not available`);
+    }
+
     // Select model based on whether we have images in the FULL conversation history
     // Check BEFORE optimization to ensure we detect images even if they were optimized out
     const containsImages = hasImages(messages);
@@ -394,11 +685,55 @@ Maths: \\(inline\\) ou $$block$$
 Mermaid: guillemets OBLIGATOIRES A["Texte (date)"]
 Images/vidéos: markdown ![](url) ou [lien](url)
 
+OUTILS VISUELS (utilise-les activement et créativement):
+- show_chart: graphiques barres/lignes (données numériques, statistiques, évolutions)
+- show_table: tableaux triables (listes structurées, comparaisons)
+- show_code: code avec coloration (exemples de programmation)
+- show_media: images/vidéos/audio (médias)
+- preview_link: aperçu de liens (URLs)
+- show_options: liste de choix (questions à choix multiples)
+- afficher_traduction: traduction avec exemples que TU génères (toutes langues)
+- afficher_synonymes: synonymes (français=API auto, autres=tu génères)
+- afficher_antonymes: antonymes (français=API auto, autres=tu génères)
+- afficher_conjugaison: conjugaisons que TU génères (toutes langues)
+
+USAGE CRÉATIF DES OUTILS:
+Les outils visuels peuvent être utilisés MÊME si non demandés explicitement:
+- Vocabulaire/définition → appelle afficher_synonymes
+- Demande d'antonymes → appelle afficher_antonymes
+- Question sur un verbe → génère conjugaisons + appelle afficher_conjugaison
+- Texte en langue étrangère → génère traduction + appelle afficher_traduction
+- Données/comparaison → affiche tableau ou graphique
+- Code → utilise show_code au lieu de markdown
+
+IMPORTANT - GÉNÉRATION DE DONNÉES LINGUISTIQUES:
+1. afficher_traduction: TOUJOURS générer 2-5 traductions + 3-5 exemples contextuels
+2. afficher_synonymes:
+   - FRANÇAIS (fr): appelle l'outil avec text + language="fr" + synonyms VIDE (API auto)
+   - AUTRES LANGUES: génère 15-20 synonymes + appelle l'outil
+3. afficher_antonymes:
+   - FRANÇAIS (fr): appelle l'outil avec text + language="fr" + antonyms VIDE (API auto)
+   - AUTRES LANGUES: génère 10-15 antonymes + appelle l'outil
+4. afficher_conjugaison: TOUJOURS générer toutes conjugaisons (tous temps/modes)
+
+RÈGLES CRITIQUES OUTILS VISUELS:
+1. Les outils s'affichent AUTOMATIQUEMENT en haut du message
+2. APRÈS avoir appelé un outil: réponds seulement avec du texte simple
+3. INTERDIT après un outil:
+   - Tableaux markdown (| col | col |)
+   - Images markdown (![...](url))
+   - Blocs de code (\`\`\`code\`\`\`)
+   - Toute représentation visuelle du même contenu
+4. BON exemple: [appel show_table] puis "Voici les données demandées."
+5. MAUVAIS exemple: [appel show_table] puis "Voici le tableau:\n| A | B |..."
+6. Outils multilingues: traduire, afficher_synonymes, afficher_antonymes, afficher_conjugaison
+REGLE D'OR: lors de l'utilisation d'outils visuels, ne répéte JAMAIS le contenu.
+
 RECHERCHE WEB:
 - Si infos actuelles nécessaires uniquement
 - Synthétise le contenu chargé (3 premiers sites)
 - Cite sources brièvement en fin
-- Tu es NE doit PAS fair de plus de 2 recherches par message
+- Max 2 recherches par message
 
 ÉVITER:
 - Intros/répétitions/conclusions bateau
@@ -407,7 +742,7 @@ RECHERCHE WEB:
 
 ───────────────
 
-📂 FICHIERS
+FICHIERS
 
 create_file(data, persistent=True) → 1 fichier
 generate_and_archive(files_data) → archive
@@ -425,32 +760,14 @@ PDF: ![](image_query: keyword)
 
 ───────────────
 
-🧠 EDIT DOCS
+EDIT DOCUMENT
 
 1. tool_full_context_document_post(file_id)
 2. Review: tool_review_document_post(comments=[(index,"text")])
 3. Edit: tool_edit_document_post({edits:[["sid:X/shid:Y",["text"]]], ops:[["insert_after",X,"n1"]]})
 
-⚠️ Jamais afficher contenu, juste appeler outil
+Jamais afficher contenu, juste appeler outil
 `;
-
-    if (toolNames.length > 0) {
-      const toolDescriptions = toolNames.slice(0, 20).map((name) => {
-        const t = tools[name] as any;
-        return `- **${name}**: ${t.description || "Outil disponible"}`;
-      }).join("\n");
-
-      systemPrompt += `
-
-## Tes outils disponibles
-
-Tu as accès aux outils suivants que tu peux utiliser pour aider l'utilisateur:
-
-${toolDescriptions}
-${toolNames.length > 20 ? `\n...(et ${toolNames.length - 20} autres outils)` : ''}
-
-Utilise ces outils quand c'est pertinent pour répondre aux demandes de l'utilisateur.`;
-    }
 
     console.log(`[Chat API] System prompt length: ${systemPrompt.length} chars`);
     console.log(`[Chat API] Starting stream with Groq...`);

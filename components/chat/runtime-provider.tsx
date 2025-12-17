@@ -14,6 +14,14 @@ import { getCurrentUser, getSessionJWT } from "@/lib/appwrite/client";
 import { createChat, createOrUpdateMessage } from "@/lib/appwrite/database";
 import { PDFAttachmentAdapter } from "@/lib/attachments/pdf-adapter";
 import type { User, Message } from "@/types";
+import { PreviewLinkUI, ShowMediaUI } from "@/components/assistant-ui/preview-link-ui";
+import { ShowChartUI } from "@/components/assistant-ui/show-chart-ui";
+import { ShowTableUI } from "@/components/assistant-ui/show-table-ui";
+import { ShowCodeUI } from "@/components/assistant-ui/show-code-ui";
+import { ShowOptionsUI } from "@/components/assistant-ui/show-options-ui";
+import { TraduireUI, SynonymesUI, ConjugaisonUI, AntonymesUI } from "@/components/assistant-ui/reverso-ui";
+
+
 
 // Error Boundary
 interface ErrorBoundaryState {
@@ -232,6 +240,9 @@ export function ChatRuntimeProvider({
     },
   });
 
+  // Guard to prevent duplicate chat creation
+  const creatingChatRef = useRef(false);
+
   // Sync new user messages to Appwrite
   useEffect(() => {
     const syncNewMessages = async () => {
@@ -245,8 +256,9 @@ export function ChatRuntimeProvider({
           const text = extractMessageText(msg);
           if (!text) continue;
 
-          // Create chat if needed
-          if (!chatIdRef.current) {
+          // Create chat if needed (with guard to prevent duplicates)
+          if (!chatIdRef.current && !creatingChatRef.current) {
+            creatingChatRef.current = true;
             console.log(`[Runtime Provider] Creating new chat...`);
             const chatId = crypto.randomUUID();
             const title = await generateTitle(text);
@@ -254,10 +266,18 @@ export function ChatRuntimeProvider({
             if (result.success) {
               chatIdRef.current = chatId;
               onChatCreated?.(chatId);
+              creatingChatRef.current = false; // Reset after successful creation
               console.log(`[Runtime Provider] ✓ Chat created: ${chatId}`);
             } else {
               console.log(`[Runtime Provider] ❌ Failed to create chat`);
+              creatingChatRef.current = false; // Reset on failure to allow retry
             }
+          }
+
+          // Wait if chat is being created
+          if (creatingChatRef.current && !chatIdRef.current) {
+            console.log(`[Runtime Provider] Waiting for chat creation to complete...`);
+            continue; // Skip this iteration, will be handled next time
           }
 
           // Save user message
@@ -299,6 +319,17 @@ export function ChatRuntimeProvider({
   return (
     <AssistantErrorBoundary onReset={() => router.refresh()}>
       <AssistantRuntimeProvider runtime={runtime}>
+        {/* Tool UIs - must be mounted under AssistantRuntimeProvider */}
+        <PreviewLinkUI />
+        <ShowMediaUI />
+        <ShowChartUI />
+        <ShowTableUI />
+        <ShowCodeUI />
+        <ShowOptionsUI />
+        <TraduireUI />
+        <SynonymesUI />
+        <ConjugaisonUI />
+        <AntonymesUI />
         {children}
       </AssistantRuntimeProvider>
     </AssistantErrorBoundary>
