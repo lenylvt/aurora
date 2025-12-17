@@ -75,6 +75,36 @@ export function getEnabledComposioToolkitSlugs(): string[] {
 }
 
 /**
+ * Get specific allowed tools across all enabled toolkits
+ * Returns array of specific tool names if any toolkit has allowedTools configured
+ * Returns empty array if all toolkits should load all tools
+ */
+export function getAllowedToolsForToolkits(): {
+    hasFilter: boolean;
+    tools: string[];
+    toolkits: string[];
+} {
+    const enabledToolkits = getEnabledComposioToolkits();
+    const specificTools: string[] = [];
+    const toolkitsWithAllTools: string[] = [];
+
+    for (const toolkit of enabledToolkits) {
+        if (toolkit.allowedTools && toolkit.allowedTools.length > 0) {
+            specificTools.push(...toolkit.allowedTools);
+        } else {
+            // This toolkit wants all its tools
+            toolkitsWithAllTools.push(toolkit.toolkit);
+        }
+    }
+
+    return {
+        hasFilter: specificTools.length > 0,
+        tools: specificTools,
+        toolkits: toolkitsWithAllTools,
+    };
+}
+
+/**
  * Get all MCP server configurations
  */
 export function getMCPServers(): Record<string, MCPServerConfig> {

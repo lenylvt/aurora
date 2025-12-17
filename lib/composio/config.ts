@@ -12,6 +12,7 @@ export {
     getComposioToolkitById as getToolkitById,
     getComposioToolkitBySlug as getToolkitBySlug,
     getEnabledComposioToolkitSlugs as getEnabledToolkitSlugs,
+    getAllowedToolsForToolkits,
 } from "@/lib/mcp/config";
 
 // Re-export types

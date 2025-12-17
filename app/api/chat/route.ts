@@ -4,7 +4,7 @@ import { z } from "zod";
 import { groq } from "@ai-sdk/groq";
 import { getCurrentUserServer } from "@/lib/appwrite/server";
 import { getComposioTools, isComposioAvailable } from "@/lib/composio/client";
-import { getEnabledToolkitSlugs } from "@/lib/composio/config";
+import { getEnabledToolkitSlugs, getAllowedToolsForToolkits } from "@/lib/composio/config";
 import { getMCPTools, isMCPAvailable } from "@/lib/mcp/client";
 import { optimizeMessageContext } from "@/lib/groq/context";
 import { searchWeb, formatSearchResults, isGoogleSearchAvailable } from "@/lib/search/google";
@@ -219,17 +219,34 @@ export async function POST(req: NextRequest) {
     if (isComposioAvailable()) {
       console.log(`[Chat API] Composio available, fetching tools...`);
       try {
-        const enabledToolkits = getEnabledToolkitSlugs();
-        console.log(`[Chat API] Enabled toolkits: ${enabledToolkits.join(", ") || "none"}`);
+        const allowedConfig = getAllowedToolsForToolkits();
+        console.log(`[Chat API] Allowed tools config: hasFilter=${allowedConfig.hasFilter}, tools=${allowedConfig.tools.length}, toolkits=${allowedConfig.toolkits.length}`);
 
-        if (enabledToolkits.length > 0) {
-          const composioTools = await getComposioTools(user.$id, {
-            toolkits: enabledToolkits,
-            limit: 50,
+        // Fetch specific tools if configured, or all tools from toolkits without filter
+        let composioTools: Record<string, any> = {};
+
+        // First, get specific tools if any are configured
+        if (allowedConfig.tools.length > 0) {
+          console.log(`[Chat API] Fetching specific tools: ${allowedConfig.tools.join(", ")}`);
+          const specificTools = await getComposioTools(user.$id, {
+            tools: allowedConfig.tools,
           });
-          tools = { ...tools, ...composioTools };
-          console.log(`[Chat API] ✓ Loaded ${Object.keys(composioTools).length} Composio tools`);
+          composioTools = { ...composioTools, ...specificTools };
+          console.log(`[Chat API] ✓ Loaded ${Object.keys(specificTools).length} specific Composio tools`);
         }
+
+        // Then, get all tools from toolkits that don't have a filter
+        if (allowedConfig.toolkits.length > 0) {
+          console.log(`[Chat API] Fetching all tools from toolkits: ${allowedConfig.toolkits.join(", ")}`);
+          const toolkitTools = await getComposioTools(user.$id, {
+            toolkits: allowedConfig.toolkits,
+          });
+          composioTools = { ...composioTools, ...toolkitTools };
+          console.log(`[Chat API] ✓ Loaded ${Object.keys(toolkitTools).length} toolkit Composio tools`);
+        }
+
+        tools = { ...tools, ...composioTools };
+        console.log(`[Chat API] ✓ Total Composio tools: ${Object.keys(composioTools).length}`);
       } catch (toolError) {
         console.warn("[Chat API] ⚠ Composio tools not available:", toolError);
       }
