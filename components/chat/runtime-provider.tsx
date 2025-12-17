@@ -19,6 +19,7 @@ import { ShowChartUI } from "@/components/assistant-ui/show-chart-ui";
 import { ShowTableUI } from "@/components/assistant-ui/show-table-ui";
 import { ShowCodeUI } from "@/components/assistant-ui/show-code-ui";
 import { ShowOptionsUI } from "@/components/assistant-ui/show-options-ui";
+import { TraduireUI, SynonymesUI, ConjugaisonUI, AntonymesUI } from "@/components/assistant-ui/reverso-ui";
 
 
 
@@ -324,6 +325,10 @@ export function ChatRuntimeProvider({
         <ShowTableUI />
         <ShowCodeUI />
         <ShowOptionsUI />
+        <TraduireUI />
+        <SynonymesUI />
+        <ConjugaisonUI />
+        <AntonymesUI />
         {children}
       </AssistantRuntimeProvider>
     </AssistantErrorBoundary>

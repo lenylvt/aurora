@@ -9,6 +9,7 @@ import { getMCPTools, isMCPAvailable } from "@/lib/mcp/client";
 import { optimizeMessageContext } from "@/lib/groq/context";
 import { searchWeb, formatSearchResults, isGoogleSearchAvailable } from "@/lib/search/google";
 import { isSupadataAvailable, scrapeWebContent, getTranscript } from "@/lib/supadata/client";
+import { getTranslation, getSynonyms, getConjugation, getAntonyms, isReversoAvailable } from "@/lib/reverso/client";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -511,6 +512,132 @@ export async function POST(req: NextRequest) {
     });
     console.log(`[Chat API] ✓ Added show_options tool (human-in-the-loop)`);
 
+    // Add Reverso translation/synonyms/conjugation tools
+    if (isReversoAvailable()) {
+      console.log(`[Chat API] ✓ Reverso available, adding tools`);
+
+      // Translation tool - AI generates translation and examples
+      tools.afficher_traduction = tool({
+        description: "Affiche une traduction avec exemples de contexte. IMPORTANT: Tu dois d'abord TRADUIRE toi-même le texte ET générer 3-5 exemples de phrases utilisant ce mot/expression dans les deux langues, puis appeler cet outil. Fonctionne pour TOUTES les langues.",
+        inputSchema: z.object({
+          text: z.string().describe("Le texte original"),
+          source: z.string().describe("Code de langue source (fr, en, es, de, it, etc.)"),
+          target: z.string().describe("Code de langue cible (fr, en, es, de, it, etc.)"),
+          translations: z.array(z.string()).describe("Liste de 2-5 traductions alternatives que tu as générées"),
+          examples: z.array(z.object({
+            source: z.string().describe("Phrase d'exemple dans la langue source"),
+            target: z.string().describe("Traduction de la phrase d'exemple"),
+          })).optional().describe("3-5 exemples d'utilisation dans les deux langues que tu as générés"),
+        }),
+        // No execute - AI provides the data directly
+      });
+
+      // Synonyms tool - Hybrid: API for French, AI for other languages
+      tools.afficher_synonymes = tool({
+        description: "Affiche une liste visuelle de synonymes. FRANÇAIS: appelle l'outil avec synonyms vide, l'API sera utilisée automatiquement. AUTRES LANGUES: Tu dois GÉNÉRER toi-même 15-20 synonymes pertinents, puis appeler cet outil.",
+        inputSchema: z.object({
+          text: z.string().describe("Le mot original"),
+          language: z.string().describe("Code de langue (fr, en, es, de, etc.)"),
+          synonyms: z.array(z.object({
+            id: z.number(),
+            synonym: z.string(),
+          })).optional().describe("Liste de synonymes (laisse vide/undefined pour français, génère pour autres langues)"),
+        }),
+        execute: async ({ text, language, synonyms }) => {
+          // French - use API
+          if (language === "fr" || language === "french") {
+            console.log(`[Synonymes] Using API for French word: "${text}"`);
+            try {
+              const result = await getSynonyms(text, language);
+              if (!result.ok) {
+                return { error: result.message };
+              }
+              return {
+                id: `synonyms-${Date.now()}`,
+                text: result.text,
+                source: result.source,
+                synonyms: result.synonyms,
+              };
+            } catch (error: any) {
+              console.error("[Synonymes] ❌ API error:", error);
+              return { error: error.message };
+            }
+          }
+
+          // Other languages - use AI-generated data
+          console.log(`[Synonymes] Using AI-generated data for "${text}" in ${language}`);
+          return {
+            id: `synonyms-${Date.now()}`,
+            text,
+            source: language,
+            synonyms: synonyms || [],
+          };
+        },
+      });
+
+      // Conjugation tool - AI generates for all languages
+      tools.afficher_conjugaison = tool({
+        description: "Affiche la conjugaison complète d'un verbe. IMPORTANT: Tu dois d'abord GÉNÉRER toi-même toutes les conjugaisons du verbe dans tous les temps/modes pertinents pour la langue, puis appeler cet outil pour les afficher. Fonctionne pour TOUTES les langues.",
+        inputSchema: z.object({
+          infinitive: z.string().describe("Le verbe à l'infinitif"),
+          language: z.string().describe("Code de langue (fr, en, es, de, it, etc.)"),
+          verbForms: z.array(z.object({
+            id: z.number(),
+            conjugation: z.string().describe("Nom du temps/mode (ex: Présent, Imparfait, Present Simple, etc.)"),
+            verbs: z.array(z.string()).describe("Formes conjuguées pour ce temps"),
+          })).describe("Liste complète des conjugaisons que tu as générées"),
+        }),
+        // No execute - AI provides the data directly
+      });
+
+      // Antonyms tool - Hybrid: API for French, AI for other languages
+      tools.afficher_antonymes = tool({
+        description: "Affiche une liste visuelle d'antonymes (contraires). FRANÇAIS: appelle l'outil avec antonyms vide, l'API sera utilisée automatiquement. AUTRES LANGUES: Tu dois GÉNÉRER toi-même 10-15 antonymes pertinents, puis appeler cet outil.",
+        inputSchema: z.object({
+          text: z.string().describe("Le mot original"),
+          language: z.string().describe("Code de langue (fr, en, es, de, etc.)"),
+          antonyms: z.array(z.object({
+            id: z.number(),
+            antonym: z.string(),
+          })).optional().describe("Liste d'antonymes (laisse vide/undefined pour français, génère pour autres langues)"),
+        }),
+        execute: async ({ text, language, antonyms }) => {
+          // French - use API
+          if (language === "fr" || language === "french") {
+            console.log(`[Antonymes] Using API for French word: "${text}"`);
+            try {
+              const result = await getAntonyms(text, language);
+              if (!result.ok) {
+                return { error: result.message };
+              }
+              return {
+                id: `antonyms-${Date.now()}`,
+                text: result.text,
+                source: result.source,
+                antonyms: result.antonyms,
+              };
+            } catch (error: any) {
+              console.error("[Antonymes] ❌ API error:", error);
+              return { error: error.message };
+            }
+          }
+
+          // Other languages - use AI-generated data
+          console.log(`[Antonymes] Using AI-generated data for "${text}" in ${language}`);
+          return {
+            id: `antonyms-${Date.now()}`,
+            text,
+            source: language,
+            antonyms: antonyms || [],
+          };
+        },
+      });
+
+      console.log(`[Chat API] ✓ Added language tools (afficher_traduction, afficher_synonymes, afficher_conjugaison, afficher_antonymes)`);
+    } else {
+      console.log(`[Chat API] Reverso not available`);
+    }
+
     // Select model based on whether we have images in the FULL conversation history
     // Check BEFORE optimization to ensure we detect images even if they were optimized out
     const containsImages = hasImages(messages);
@@ -558,13 +685,36 @@ Maths: \\(inline\\) ou $$block$$
 Mermaid: guillemets OBLIGATOIRES A["Texte (date)"]
 Images/vidéos: markdown ![](url) ou [lien](url)
 
-OUTILS VISUELS (utilise-les activement):
-- show_chart: graphiques barres/lignes (si données disponibles)
-- show_table: tableaux triables (si données disponibles)
-- show_code: code avec coloration (si code disponible)
-- show_media: images/vidéos/audio (si médias disponibles)
-- preview_link: aperçu de liens (si liens disponibles)
-- show_options: liste de choix (si question a choix multiple)
+OUTILS VISUELS (utilise-les activement et créativement):
+- show_chart: graphiques barres/lignes (données numériques, statistiques, évolutions)
+- show_table: tableaux triables (listes structurées, comparaisons)
+- show_code: code avec coloration (exemples de programmation)
+- show_media: images/vidéos/audio (médias)
+- preview_link: aperçu de liens (URLs)
+- show_options: liste de choix (questions à choix multiples)
+- afficher_traduction: traduction avec exemples que TU génères (toutes langues)
+- afficher_synonymes: synonymes (français=API auto, autres=tu génères)
+- afficher_antonymes: antonymes (français=API auto, autres=tu génères)
+- afficher_conjugaison: conjugaisons que TU génères (toutes langues)
+
+USAGE CRÉATIF DES OUTILS:
+Les outils visuels peuvent être utilisés MÊME si non demandés explicitement:
+- Vocabulaire/définition → appelle afficher_synonymes
+- Demande d'antonymes → appelle afficher_antonymes
+- Question sur un verbe → génère conjugaisons + appelle afficher_conjugaison
+- Texte en langue étrangère → génère traduction + appelle afficher_traduction
+- Données/comparaison → affiche tableau ou graphique
+- Code → utilise show_code au lieu de markdown
+
+IMPORTANT - GÉNÉRATION DE DONNÉES LINGUISTIQUES:
+1. afficher_traduction: TOUJOURS générer 2-5 traductions + 3-5 exemples contextuels
+2. afficher_synonymes:
+   - FRANÇAIS (fr): appelle l'outil avec text + language="fr" + synonyms VIDE (API auto)
+   - AUTRES LANGUES: génère 15-20 synonymes + appelle l'outil
+3. afficher_antonymes:
+   - FRANÇAIS (fr): appelle l'outil avec text + language="fr" + antonyms VIDE (API auto)
+   - AUTRES LANGUES: génère 10-15 antonymes + appelle l'outil
+4. afficher_conjugaison: TOUJOURS générer toutes conjugaisons (tous temps/modes)
 
 RÈGLES CRITIQUES OUTILS VISUELS:
 1. Les outils s'affichent AUTOMATIQUEMENT en haut du message
@@ -576,6 +726,8 @@ RÈGLES CRITIQUES OUTILS VISUELS:
    - Toute représentation visuelle du même contenu
 4. BON exemple: [appel show_table] puis "Voici les données demandées."
 5. MAUVAIS exemple: [appel show_table] puis "Voici le tableau:\n| A | B |..."
+6. Outils multilingues: traduire, afficher_synonymes, afficher_antonymes, afficher_conjugaison
+REGLE D'OR: lors de l'utilisation d'outils visuels, ne répéte JAMAIS le contenu.
 
 RECHERCHE WEB:
 - Si infos actuelles nécessaires uniquement
