@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronsUpDown, LogOut, Sun, Moon, Monitor, Check, Settings } from "lucide-react";
+import Link from "next/link";
+import { ChevronsUpDown, LogOut, Sun, Moon, Monitor, Check, Settings, Shield } from "lucide-react";
 import { useTheme } from "next-themes";
 import {
   Avatar,
@@ -35,12 +36,15 @@ export function NavUser({
     name: string;
     email: string;
     avatar?: string;
+    labels?: string[];
   };
   onSignOut: () => void;
 }) {
   const { isMobile } = useSidebar();
   const { theme, setTheme } = useTheme();
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const isAdmin = user.labels?.includes("admin");
 
   return (
     <SidebarMenu>
@@ -100,6 +104,16 @@ export function NavUser({
               Paramètres
             </DropdownMenuItem>
 
+            {/* Admin Panel - only shown if user has admin label */}
+            {isAdmin && (
+              <DropdownMenuItem asChild>
+                <Link href="/admin">
+                  <Shield className="mr-2 h-4 w-4" />
+                  Admin Panel
+                </Link>
+              </DropdownMenuItem>
+            )}
+
             <DropdownMenuSeparator />
 
             {/* Theme submenu */}
@@ -146,3 +160,4 @@ export function NavUser({
     </SidebarMenu>
   );
 }
+

@@ -165,6 +165,7 @@ export function AppSidebar({
               name: user.name,
               email: user.email,
               avatar: user.avatar,
+              labels: user.labels,
             }}
             onSignOut={onSignOut}
           />

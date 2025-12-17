@@ -3,6 +3,7 @@ export interface User {
   email: string;
   name: string;
   avatar?: string;
+  labels?: string[];
 }
 
 export interface Chat {
