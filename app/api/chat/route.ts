@@ -49,31 +49,133 @@ function removeReasoning(obj: any): any {
   return cleaned;
 }
 
+// Helper to check if a message part is an image
+function isImagePart(part: any): boolean {
+  if (!part || typeof part !== 'object') return false;
+  return (
+    part.type === 'image' ||
+    part.type === 'image_url' ||
+    (part.type === 'file' && part.mediaType?.startsWith('image/'))
+  );
+}
+
 // Helper to check if messages contain images (AI SDK v5 format)
 function hasImages(messages: any[]): boolean {
   return messages.some((msg) => {
     // AI SDK v5: images are in 'parts' array with type 'file' and mediaType starting with 'image/'
     if (msg.parts && Array.isArray(msg.parts)) {
-      const hasImagePart = msg.parts.some((part: any) =>
-        (part.type === "file" && part.mediaType?.startsWith("image/")) ||
-        part.type === "image"
-      );
+      const hasImagePart = msg.parts.some((part: any) => isImagePart(part));
       if (hasImagePart) {
         return true;
       }
     }
     // Legacy format: images in 'content' array
     if (msg.content && Array.isArray(msg.content)) {
-      const hasImageContent = msg.content.some((c: any) =>
-        c.type === "image" ||
-        c.type === "image_url" ||
-        (c.type === "file" && c.mediaType?.startsWith("image/"))
-      );
+      const hasImageContent = msg.content.some((c: any) => isImagePart(c));
       if (hasImageContent) {
         return true;
       }
     }
     return false;
+  });
+}
+
+// Maximum number of images allowed by the vision model
+const MAX_IMAGES = 5;
+
+/**
+ * Limit images in messages to the last MAX_IMAGES to prevent model errors
+ * "Too many images provided. This model supports up to 5 images"
+ */
+function limitImages(messages: UIMessage[]): UIMessage[] {
+  // First pass: collect all images with their location info
+  const imageLocations: Array<{
+    messageIndex: number;
+    partType: 'parts' | 'content';
+    partIndex: number;
+  }> = [];
+
+  messages.forEach((msg: any, msgIndex) => {
+    if (msg.parts && Array.isArray(msg.parts)) {
+      msg.parts.forEach((part: any, partIndex: number) => {
+        if (isImagePart(part)) {
+          imageLocations.push({
+            messageIndex: msgIndex,
+            partType: 'parts',
+            partIndex,
+          });
+        }
+      });
+    }
+    if (msg.content && Array.isArray(msg.content)) {
+      msg.content.forEach((part: any, partIndex: number) => {
+        if (isImagePart(part)) {
+          imageLocations.push({
+            messageIndex: msgIndex,
+            partType: 'content',
+            partIndex,
+          });
+        }
+      });
+    }
+  });
+
+  // If within limit, return as-is
+  if (imageLocations.length <= MAX_IMAGES) {
+    return messages;
+  }
+
+  console.log(`[Chat API] Limiting images: ${imageLocations.length} → ${MAX_IMAGES}`);
+
+  // Keep only the last MAX_IMAGES
+  const imagesToRemove = new Set(
+    imageLocations.slice(0, -MAX_IMAGES).map(loc =>
+      `${loc.messageIndex}-${loc.partType}-${loc.partIndex}`
+    )
+  );
+
+  // Second pass: filter out old images
+  return messages.map((msg: any, msgIndex) => {
+    let modified = false;
+    let newParts = msg.parts;
+    let newContent = msg.content;
+
+    if (msg.parts && Array.isArray(msg.parts)) {
+      newParts = msg.parts.filter((part: any, partIndex: number) => {
+        if (isImagePart(part) && imagesToRemove.has(`${msgIndex}-parts-${partIndex}`)) {
+          modified = true;
+          return false;
+        }
+        return true;
+      });
+
+      // If we removed all parts from a user message, add placeholder text
+      if (msg.role === 'user' && newParts.length === 0 && msg.parts.length > 0) {
+        newParts = [{ type: 'text', text: '[Image précédente]' }];
+      }
+    }
+
+    if (msg.content && Array.isArray(msg.content)) {
+      newContent = msg.content.filter((part: any, partIndex: number) => {
+        if (isImagePart(part) && imagesToRemove.has(`${msgIndex}-content-${partIndex}`)) {
+          modified = true;
+          return false;
+        }
+        return true;
+      });
+
+      if (msg.role === 'user' && newContent.length === 0 && msg.content.length > 0) {
+        newContent = [{ type: 'text', text: '[Image précédente]' }];
+      }
+    }
+
+    if (!modified) return msg;
+
+    return {
+      ...msg,
+      parts: newParts,
+      content: newContent,
+    };
   });
 }
 
@@ -200,7 +302,13 @@ export async function POST(req: NextRequest) {
     const containsImages = hasImages(messages);
 
     // Optimize message context to reduce API usage
-    const optimizedMessages = optimizeMessageContext(messages);
+    let optimizedMessages = optimizeMessageContext(messages);
+
+    // Limit images to MAX_IMAGES (5) to prevent model errors
+    if (containsImages) {
+      optimizedMessages = limitImages(optimizedMessages);
+    }
+
     const selectedModel = containsImages ? VISION_MODEL : MODELS[0];
 
     // Convert messages to model messages format
