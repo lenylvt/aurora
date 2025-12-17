@@ -20,6 +20,7 @@ import { ShowTableUI } from "@/components/assistant-ui/show-table-ui";
 import { ShowCodeUI } from "@/components/assistant-ui/show-code-ui";
 import { ShowOptionsUI } from "@/components/assistant-ui/show-options-ui";
 import { TraduireUI, SynonymesUI, ConjugaisonUI, AntonymesUI } from "@/components/assistant-ui/reverso-ui";
+import { useSpecialty } from "./specialty-provider";
 
 
 
@@ -127,13 +128,15 @@ interface ChatRuntimeProviderProps {
   currentChatId?: string | null;
   initialMessages?: Message[];
   onChatCreated?: (chatId: string) => void;
+  onMessagesChange?: (count: number) => void;
 }
 
 export function ChatRuntimeProvider({
   children,
   currentChatId,
   initialMessages = [],
-  onChatCreated
+  onChatCreated,
+  onMessagesChange
 }: ChatRuntimeProviderProps) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -169,6 +172,9 @@ export function ChatRuntimeProvider({
     return initialMessages.map(convertAppwriteToUIMessage);
   }, [initialMessages]);
 
+  // Get specialty from context
+  const { activeSpecialty } = useSpecialty();
+
   // Create transport with JWT - use AssistantChatTransport which supports custom fetch
   const transport = useMemo(() => {
     console.log(`[Runtime Provider] Creating transport...`);
@@ -182,8 +188,23 @@ export function ChatRuntimeProvider({
           throw new Error("Session expirée");
         }
         console.log(`[Runtime Provider] ✓ JWT ready, sending request...`);
+
+        // Parse and modify body to include specialty
+        let body = options?.body;
+        if (body && typeof body === 'string') {
+          try {
+            const parsed = JSON.parse(body);
+            parsed.specialty = activeSpecialty;
+            body = JSON.stringify(parsed);
+            console.log(`[Runtime Provider] Added specialty to request: ${activeSpecialty || 'none'}`);
+          } catch (e) {
+            console.warn(`[Runtime Provider] Failed to parse body for specialty injection`);
+          }
+        }
+
         return fetch(url, {
           ...options,
+          body,
           headers: {
             ...options?.headers,
             "Authorization": `Bearer ${jwt}`,
@@ -191,7 +212,7 @@ export function ChatRuntimeProvider({
         });
       },
     });
-  }, []);
+  }, [activeSpecialty]);
 
   // Handle message finish
   const handleFinish = useCallback(async ({ message }: { message: UIMessage }) => {
@@ -300,10 +321,11 @@ export function ChatRuntimeProvider({
       }
 
       lastMessageCountRef.current = chat.messages.length;
+      onMessagesChange?.(chat.messages.length);
     };
 
     syncNewMessages();
-  }, [chat.messages, user, onChatCreated]);
+  }, [chat.messages, user, onChatCreated, onMessagesChange]);
 
   if (!user) {
     return (

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { getSessionJWT } from "@/lib/appwrite/client";
-import { Sparkles, Check, Loader2, ExternalLink, Settings } from "lucide-react";
+import { Puzzle, Check, Loader2, ExternalLink, Settings } from "lucide-react";
 import { useToolkits } from "./toolkits-provider";
 import { SettingsDialog } from "@/components/settings/settings-dialog";
 
@@ -94,7 +94,7 @@ export function ComposioSelector({ className }: ComposioSelectorProps) {
                     className={`size-[34px] rounded-full p-1 hover:bg-muted-foreground/15 dark:hover:bg-muted-foreground/30 ${className || ""}`}
                     aria-label="Intégrations"
                 >
-                    <Sparkles className={`size-5 stroke-[1.5px] ${hasAvailable ? "text-primary" : "text-muted-foreground"}`} />
+                    <Puzzle className={`size-5 stroke-[1.5px] ${hasAvailable ? "text-primary" : "text-muted-foreground"}`} />
                 </TooltipIconButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56">

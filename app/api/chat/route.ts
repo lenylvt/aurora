@@ -10,12 +10,14 @@ import { optimizeMessageContext } from "@/lib/groq/context";
 import { searchWeb, formatSearchResults, isGoogleSearchAvailable } from "@/lib/search/google";
 import { isSupadataAvailable, scrapeWebContent, getTranscript } from "@/lib/supadata/client";
 import { getTranslation, getSynonyms, getConjugation, getAntonyms, isReversoAvailable } from "@/lib/reverso/client";
+import { getSpecialtyById } from "@/lib/specialties/config";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 interface ChatRequest {
   messages: UIMessage[];
+  specialty?: string | null;
 }
 
 // Fallback chain: try each model in order
@@ -200,7 +202,7 @@ export async function POST(req: NextRequest) {
     console.log(`[Chat API] ✓ User authenticated: ${user.$id} (${user.email})`);
 
     console.log(`[Chat API] Parsing request body...`);
-    const { messages }: ChatRequest = await req.json();
+    const { messages, specialty }: ChatRequest = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
       console.log(`[Chat API] ❌ Invalid request - messages missing or not array`);
@@ -211,6 +213,7 @@ export async function POST(req: NextRequest) {
     }
     console.log(`[Chat API] ✓ Received ${messages.length} messages`);
     console.log(`[Chat API] Last message role: ${messages[messages.length - 1]?.role}`);
+    console.log(`[Chat API] Active specialty: ${specialty || 'none'}`);
 
     // Get tools from all sources
     let tools: Record<string, any> = {};
@@ -740,6 +743,15 @@ Détails non demandés hors sujet
 Explications fonctionnement formatage outils
 Répétition contenu déjà affiché par outil
 `;
+
+    // Add specialty-specific instructions
+    if (specialty) {
+      const specialtyConfig = getSpecialtyById(specialty);
+      if (specialtyConfig) {
+        console.log(`[Chat API] Adding ${specialtyConfig.name.toUpperCase()} specialty instructions to system prompt`);
+        systemPrompt += specialtyConfig.prompt;
+      }
+    }
 
     console.log(`[Chat API] System prompt length: ${systemPrompt.length} chars`);
     console.log(`[Chat API] Starting stream with Groq...`);
