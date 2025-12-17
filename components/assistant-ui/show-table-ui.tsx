@@ -24,7 +24,7 @@ export const ShowTableUI = makeAssistantToolUI({
             const tableProps = parseSerializableDataTable(result);
             return (
                 <DataTableErrorBoundary>
-                    <DataTable rowIdKey="id" {...tableProps} />
+                    <DataTable {...tableProps} />
                 </DataTableErrorBoundary>
             );
         } catch (error) {

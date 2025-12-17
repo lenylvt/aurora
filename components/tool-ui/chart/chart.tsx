@@ -114,7 +114,7 @@ export function Chart({
                                     fill={seriesColors[i]}
                                     radius={[4, 4, 0, 0]}
                                     onClick={(data) =>
-                                        data && handleDataPointClick(s.key, s.label, data.payload, data.index)
+                                        data?.payload && typeof data?.index !== "undefined" && handleDataPointClick(s.key, s.label, data.payload, data.index)
                                     }
                                     cursor={onDataPointClick ? "pointer" : undefined}
                                 />

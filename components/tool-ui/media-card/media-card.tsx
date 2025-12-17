@@ -78,14 +78,20 @@ function VideoContent({
     const [muted, setMuted] = React.useState(true);
     const videoRef = React.useRef<HTMLVideoElement>(null);
 
-    const togglePlay = () => {
+    const togglePlay = async () => {
         if (videoRef.current) {
             if (playing) {
                 videoRef.current.pause();
+                setPlaying(false);
             } else {
-                videoRef.current.play();
+                try {
+                    await videoRef.current.play();
+                    setPlaying(true);
+                } catch (error) {
+                    console.error("Failed to play video:", error);
+                    setPlaying(false);
+                }
             }
-            setPlaying(!playing);
         }
     };
 

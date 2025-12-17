@@ -266,6 +266,7 @@ export function ChatRuntimeProvider({
             if (result.success) {
               chatIdRef.current = chatId;
               onChatCreated?.(chatId);
+              creatingChatRef.current = false; // Reset after successful creation
               console.log(`[Runtime Provider] ✓ Chat created: ${chatId}`);
             } else {
               console.log(`[Runtime Provider] ❌ Failed to create chat`);

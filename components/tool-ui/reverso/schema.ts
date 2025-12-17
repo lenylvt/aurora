@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseWithSchema } from "../shared/parse";
 
 // ===== TRANSLATION SCHEMAS =====
 
@@ -20,11 +21,7 @@ export const SerializableTranslationSchema = z.object({
 export type SerializableTranslation = z.infer<typeof SerializableTranslationSchema>;
 
 export const parseSerializableTranslation = (input: unknown): SerializableTranslation => {
-	try {
-		return SerializableTranslationSchema.parse(input);
-	} catch (error) {
-		throw new Error(`Invalid translation data: ${error instanceof Error ? error.message : String(error)}`);
-	}
+	return parseWithSchema(SerializableTranslationSchema, input, "translation");
 };
 
 // ===== SYNONYMS SCHEMAS =====
@@ -45,11 +42,7 @@ export const SerializableSynonymsSchema = z.object({
 export type SerializableSynonyms = z.infer<typeof SerializableSynonymsSchema>;
 
 export const parseSerializableSynonyms = (input: unknown): SerializableSynonyms => {
-	try {
-		return SerializableSynonymsSchema.parse(input);
-	} catch (error) {
-		throw new Error(`Invalid synonyms data: ${error instanceof Error ? error.message : String(error)}`);
-	}
+	return parseWithSchema(SerializableSynonymsSchema, input, "synonyms");
 };
 
 // ===== CONJUGATION SCHEMAS =====
@@ -70,11 +63,7 @@ export const SerializableConjugationSchema = z.object({
 export type SerializableConjugation = z.infer<typeof SerializableConjugationSchema>;
 
 export const parseSerializableConjugation = (input: unknown): SerializableConjugation => {
-	try {
-		return SerializableConjugationSchema.parse(input);
-	} catch (error) {
-		throw new Error(`Invalid conjugation data: ${error instanceof Error ? error.message : String(error)}`);
-	}
+	return parseWithSchema(SerializableConjugationSchema, input, "conjugation");
 };
 
 // ===== ANTONYMS SCHEMAS =====
@@ -95,9 +84,5 @@ export const SerializableAntonymsSchema = z.object({
 export type SerializableAntonyms = z.infer<typeof SerializableAntonymsSchema>;
 
 export const parseSerializableAntonyms = (input: unknown): SerializableAntonyms => {
-	try {
-		return SerializableAntonymsSchema.parse(input);
-	} catch (error) {
-		throw new Error(`Invalid antonyms data: ${error instanceof Error ? error.message : String(error)}`);
-	}
+	return parseWithSchema(SerializableAntonymsSchema, input, "antonyms");
 };

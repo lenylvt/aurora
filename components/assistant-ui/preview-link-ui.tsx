@@ -65,7 +65,7 @@ export const ShowMediaUI = makeAssistantToolUI<unknown, { action: string } | nul
 
         // Use result if available (after execute), otherwise use args (during streaming)
         const mediaData = result || args;
-        if (!mediaData || typeof mediaData !== "object") {
+        if (!mediaData || mediaData === null || Array.isArray(mediaData) || typeof mediaData !== "object") {
             console.log("[ShowMediaUI] No valid media data");
             return null;
         }
