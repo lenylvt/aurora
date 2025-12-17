@@ -705,6 +705,7 @@ Les outils visuels peuvent être utilisés MÊME si non demandés explicitement:
 - Texte en langue étrangère → génère traduction + appelle afficher_traduction
 - Données/comparaison → affiche tableau ou graphique
 - Code → utilise show_code au lieu de markdown
+- Question à choix multiple → appelle show_options
 
 IMPORTANT - GÉNÉRATION DE DONNÉES LINGUISTIQUES:
 1. afficher_traduction: TOUJOURS générer 2-5 traductions + 3-5 exemples contextuels
