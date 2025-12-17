@@ -541,7 +541,7 @@ Maths: \\(inline\\) ou $$block$$
 Mermaid: guillemets OBLIGATOIRES A["Texte (date)"]
 Images/vidéos: markdown ![](url) ou [lien](url)
 
-🎨 OUTILS VISUELS (utilise-les activement):
+OUTILS VISUELS (utilise-les activement):
 - show_chart: graphiques barres/lignes (si données disponibles)
 - show_table: tableaux triables (si données disponibles)
 - show_code: code avec coloration (si code disponible)
@@ -549,7 +549,7 @@ Images/vidéos: markdown ![](url) ou [lien](url)
 - preview_link: aperçu de liens (si liens disponibles)
 - show_options: liste de choix (si question a choix multiple)
 
-⚠️ RÈGLES CRITIQUES OUTILS VISUELS:
+RÈGLES CRITIQUES OUTILS VISUELS:
 1. Les outils s'affichent AUTOMATIQUEMENT en haut du message
 2. APRÈS avoir appelé un outil: réponds seulement avec du texte simple
 3. INTERDIT après un outil:
@@ -573,7 +573,7 @@ RECHERCHE WEB:
 
 ───────────────
 
-📂 FICHIERS
+FICHIERS
 
 create_file(data, persistent=True) → 1 fichier
 generate_and_archive(files_data) → archive
@@ -591,32 +591,14 @@ PDF: ![](image_query: keyword)
 
 ───────────────
 
-🧠 EDIT DOCS
+EDIT DOCUMENT
 
 1. tool_full_context_document_post(file_id)
 2. Review: tool_review_document_post(comments=[(index,"text")])
 3. Edit: tool_edit_document_post({edits:[["sid:X/shid:Y",["text"]]], ops:[["insert_after",X,"n1"]]})
 
-⚠️ Jamais afficher contenu, juste appeler outil
+Jamais afficher contenu, juste appeler outil
 `;
-
-    if (toolNames.length > 0) {
-      const toolDescriptions = toolNames.slice(0, 20).map((name) => {
-        const t = tools[name] as any;
-        return `- **${name}**: ${t.description || "Outil disponible"}`;
-      }).join("\n");
-
-      systemPrompt += `
-
-## Tes outils disponibles
-
-Tu as accès aux outils suivants que tu peux utiliser pour aider l'utilisateur:
-
-${toolDescriptions}
-${toolNames.length > 20 ? `\n...(et ${toolNames.length - 20} autres outils)` : ''}
-
-Utilise ces outils quand c'est pertinent pour répondre aux demandes de l'utilisateur.`;
-    }
 
     console.log(`[Chat API] System prompt length: ${systemPrompt.length} chars`);
     console.log(`[Chat API] Starting stream with Groq...`);
