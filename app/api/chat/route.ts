@@ -347,6 +347,153 @@ export async function POST(req: NextRequest) {
       console.log(`[Chat API] Supadata not available (no API key)`);
     }
 
+    // Add preview_link tool for Tool UI demonstration
+    tools.preview_link = tool({
+      description: "Affiche un aperçu visuel d'un lien URL sous forme de carte. Utilise cet outil quand l'utilisateur demande de prévisualiser ou d'afficher un lien.",
+      inputSchema: z.object({
+        url: z.string().url().describe("L'URL à prévisualiser"),
+        title: z.string().optional().describe("Titre optionnel pour la carte"),
+        description: z.string().optional().describe("Description optionnelle"),
+      }),
+      execute: async ({ url, title, description }) => {
+        console.log(`[Preview Link] Creating preview for: ${url}`);
+        try {
+          const urlObj = new URL(url);
+          const domain = urlObj.hostname.replace(/^www\./, "");
+
+          return {
+            id: `link-preview-${Date.now()}`,
+            assetId: url,
+            kind: "link" as const,
+            href: url,
+            title: title || `Lien vers ${domain}`,
+            description: description || `Contenu de ${domain}`,
+            domain,
+          };
+        } catch (error: any) {
+          console.error("[Preview Link] ❌ Error:", error);
+          return {
+            id: `link-preview-error-${Date.now()}`,
+            assetId: url,
+            kind: "link" as const,
+            href: url,
+            title: "Lien",
+            description: `Erreur: ${error.message}`,
+          };
+        }
+      },
+    });
+    console.log(`[Chat API] ✓ Added preview_link tool`);
+
+    // Add show_chart tool
+    tools.show_chart = tool({
+      description: "Affiche des données sous forme de graphique (barres ou lignes). Utilise cet outil pour visualiser des tendances, comparaisons ou données numériques.",
+      inputSchema: z.object({
+        type: z.enum(["bar", "line"]).describe("Type de graphique"),
+        title: z.string().describe("Titre du graphique"),
+        description: z.string().optional().describe("Description optionnelle"),
+        data: z.array(z.record(z.string(), z.unknown())).describe("Données à afficher"),
+        xKey: z.string().describe("Clé pour l'axe X"),
+        series: z.array(z.object({
+          key: z.string(),
+          label: z.string(),
+        })).describe("Séries de données à afficher"),
+        showLegend: z.boolean().optional().describe("Afficher la légende"),
+        showGrid: z.boolean().optional().describe("Afficher la grille"),
+      }),
+      execute: async (args) => {
+        console.log(`[Show Chart] Creating chart: ${args.title}`);
+        return {
+          id: `chart-${Date.now()}`,
+          ...args,
+        };
+      },
+    });
+    console.log(`[Chat API] ✓ Added show_chart tool`);
+
+    // Add show_table tool
+    tools.show_table = tool({
+      description: "Affiche des données sous forme de tableau triable. Utilise cet outil pour les listes, résultats de recherche ou données structurées.",
+      inputSchema: z.object({
+        columns: z.array(z.object({
+          key: z.string(),
+          label: z.string(),
+          format: z.object({
+            kind: z.enum(["text", "number", "currency", "date", "status", "badge"]),
+          }).optional(),
+          align: z.enum(["left", "right", "center"]).optional(),
+        })).describe("Colonnes du tableau"),
+        data: z.array(z.record(z.string(), z.unknown())).describe("Données à afficher"),
+      }),
+      execute: async ({ columns, data }) => {
+        console.log(`[Show Table] Creating table with ${data.length} rows`);
+        return {
+          id: `table-${Date.now()}`,
+          columns,
+          data,
+        };
+      },
+    });
+    console.log(`[Chat API] ✓ Added show_table tool`);
+
+    // Add show_code tool
+    tools.show_code = tool({
+      description: "Affiche du code avec coloration syntaxique. Utilise cet outil pour les exemples de code, scripts ou configurations.",
+      inputSchema: z.object({
+        code: z.string().describe("Le code à afficher"),
+        language: z.string().describe("Langage de programmation (typescript, python, bash, etc.)"),
+        filename: z.string().optional().describe("Nom du fichier"),
+        highlightLines: z.array(z.number()).optional().describe("Lignes à mettre en évidence"),
+      }),
+      execute: async (args) => {
+        console.log(`[Show Code] Creating code block: ${args.language}`);
+        return {
+          id: `code-${Date.now()}`,
+          ...args,
+        };
+      },
+    });
+    console.log(`[Chat API] ✓ Added show_code tool`);
+
+    // Add show_media tool for images, videos, audio
+    tools.show_media = tool({
+      description: "Affiche un média (image, vidéo, audio) avec un titre et une description. Utilise cet outil après avoir généré ou récupéré un média.",
+      inputSchema: z.object({
+        kind: z.enum(["image", "video", "audio"]).describe("Type de média"),
+        src: z.string().url().describe("URL du média"),
+        title: z.string().describe("Titre du média"),
+        description: z.string().optional().describe("Description ou contexte"),
+        alt: z.string().optional().describe("Texte alternatif pour les images"),
+        ratio: z.enum(["auto", "1:1", "4:3", "16:9", "9:16"]).optional().describe("Ratio d'aspect"),
+      }),
+      execute: async (args) => {
+        console.log(`[Show Media] Creating media card: ${args.kind} - ${args.title}`);
+        return {
+          id: `media-${Date.now()}`,
+          assetId: `asset-${Date.now()}`,
+          ...args,
+          alt: args.alt || args.title,
+        };
+      },
+    });
+    console.log(`[Chat API] ✓ Added show_media tool`);
+
+    // Add show_options tool - NO execute function means human-in-the-loop
+    // Frontend will call addResult when user selects an option
+    tools.show_options = tool({
+      description: "Présente une liste d'options à l'utilisateur pour faire un choix. L'utilisateur DOIT sélectionner une option. Attends sa réponse.",
+      inputSchema: z.object({
+        options: z.array(z.object({
+          id: z.string(),
+          label: z.string(),
+          description: z.string().optional(),
+        })).describe("Liste des options"),
+        selectionMode: z.enum(["single", "multi"]).optional().describe("Mode de sélection"),
+      }),
+      // No execute function - this is a human-in-the-loop tool
+    });
+    console.log(`[Chat API] ✓ Added show_options tool (human-in-the-loop)`);
+
     // Select model based on whether we have images in the FULL conversation history
     // Check BEFORE optimization to ensure we detect images even if they were optimized out
     const containsImages = hasImages(messages);
@@ -394,11 +541,30 @@ Maths: \\(inline\\) ou $$block$$
 Mermaid: guillemets OBLIGATOIRES A["Texte (date)"]
 Images/vidéos: markdown ![](url) ou [lien](url)
 
+🎨 OUTILS VISUELS (utilise-les activement):
+- show_chart: graphiques barres/lignes (si données disponibles)
+- show_table: tableaux triables (si données disponibles)
+- show_code: code avec coloration (si code disponible)
+- show_media: images/vidéos/audio (si médias disponibles)
+- preview_link: aperçu de liens (si liens disponibles)
+- show_options: liste de choix (si question a choix multiple)
+
+⚠️ RÈGLES CRITIQUES OUTILS VISUELS:
+1. Les outils s'affichent AUTOMATIQUEMENT en haut du message
+2. APRÈS avoir appelé un outil: réponds seulement avec du texte simple
+3. INTERDIT après un outil:
+   - Tableaux markdown (| col | col |)
+   - Images markdown (![...](url))
+   - Blocs de code (\`\`\`code\`\`\`)
+   - Toute représentation visuelle du même contenu
+4. BON exemple: [appel show_table] puis "Voici les données demandées."
+5. MAUVAIS exemple: [appel show_table] puis "Voici le tableau:\n| A | B |..."
+
 RECHERCHE WEB:
 - Si infos actuelles nécessaires uniquement
 - Synthétise le contenu chargé (3 premiers sites)
 - Cite sources brièvement en fin
-- Tu es NE doit PAS fair de plus de 2 recherches par message
+- Max 2 recherches par message
 
 ÉVITER:
 - Intros/répétitions/conclusions bateau
