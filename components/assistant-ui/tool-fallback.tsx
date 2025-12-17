@@ -14,8 +14,7 @@ import { cn } from "@/lib/utils";
 
 // Human-readable names for tools
 const TOOL_NAMES: Record<string, string> = {
-  youtube_list_caption_track: "Liste des sous-titres YouTube",  
-  youtube_load_captions: "Chargement des sous-titres YouTube",
+  transcrire_video: "Transcription de la vidéo",
   create_file: "Création de fichier",
   recherche_internet: "Recherche Internet",
   GEMINI_GENERATE_IMAGE: "Génération d'image",

@@ -8,6 +8,7 @@ import { getEnabledToolkitSlugs } from "@/lib/composio/config";
 import { getMCPTools, isMCPAvailable } from "@/lib/mcp/client";
 import { optimizeMessageContext } from "@/lib/groq/context";
 import { searchWeb, formatSearchResults, isGoogleSearchAvailable } from "@/lib/search/google";
+import { isSupadataAvailable, scrapeWebContent, getTranscript } from "@/lib/supadata/client";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -145,6 +146,50 @@ export async function POST(req: NextRequest) {
           } catch (error: any) {
             console.error("[Web Search] Error:", error);
             return `Erreur lors de la recherche: ${error.message}`;
+          }
+        },
+      });
+    }
+
+    // Add Supadata web scraping tool if configured
+    if (isSupadataAvailable()) {
+      /*tools.lire_page_web = tool({
+        description: "Lit et extrait le contenu complet d'une page web. Utilise cet outil quand l'utilisateur te donne une URL spécifique et veut que tu lises ou analyses son contenu.",
+        inputSchema: z.object({
+          url: z.string().url().describe("L'URL de la page web à lire"),
+        }),
+        execute: async ({ url }) => {
+          console.log("[Supadata] Scraping URL:", url);
+          if (!url) {
+            return "Erreur: aucune URL fournie";
+          }
+          try {
+            const content = await scrapeWebContent(url);
+            return `# Contenu de ${url}\n\n${content}`;
+          } catch (error: any) {
+            console.error("[Supadata] Scrape error:", error);
+            return `Erreur lors de la lecture de la page: ${error.message}`;
+          }
+        },
+      });*/
+
+      tools.transcrire_video = tool({
+        description: "Transcrit une vidéo depuis YouTube, TikTok, Instagram ou X (Twitter). Utilise cet outil quand l'utilisateur te donne une URL de vidéo et veut connaître son contenu ou sa transcription.",
+        inputSchema: z.object({
+          url: z.string().url().describe("L'URL de la vidéo à transcrire"),
+          lang: z.string().optional().describe("Code de langue optionnel (ex: 'fr', 'en')"),
+        }),
+        execute: async ({ url, lang }) => {
+          console.log("[Supadata] Transcribing video:", url);
+          if (!url) {
+            return "Erreur: aucune URL fournie";
+          }
+          try {
+            const transcript = await getTranscript(url, { lang, text: true });
+            return `# Transcription de la vidéo\n\n${transcript}`;
+          } catch (error: any) {
+            console.error("[Supadata] Transcript error:", error);
+            return `Erreur lors de la transcription: ${error.message}`;
           }
         },
       });

@@ -7,15 +7,6 @@
             "description": "Génération d'images et de vidéos",
             "enabled": true,
             "allowedTools": []
-        },
-        {
-            "id": "youtube",
-            "name": "YouTube",
-            "toolkit": "YOUTUBE",
-            "description": "Transcription des vidéos YouTube",
-            "authConfigId": "ac_lQtsdUyjd7Df",
-            "enabled": true,
-            "allowedTools": []
         }
     ],
     "mcpServers": { 
