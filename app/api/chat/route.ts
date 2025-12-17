@@ -705,6 +705,7 @@ Les outils visuels peuvent être utilisés MÊME si non demandés explicitement:
 - Texte en langue étrangère → génère traduction + appelle afficher_traduction
 - Données/comparaison → affiche tableau ou graphique
 - Code → utilise show_code au lieu de markdown
+- Question à choix multiple → appelle show_options
 
 IMPORTANT - GÉNÉRATION DE DONNÉES LINGUISTIQUES:
 1. afficher_traduction: TOUJOURS générer 2-5 traductions + 3-5 exemples contextuels
@@ -727,7 +728,7 @@ RÈGLES CRITIQUES OUTILS VISUELS:
 4. BON exemple: [appel show_table] puis "Voici les données demandées."
 5. MAUVAIS exemple: [appel show_table] puis "Voici le tableau:\n| A | B |..."
 6. Outils multilingues: traduire, afficher_synonymes, afficher_antonymes, afficher_conjugaison
-REGLE D'OR: lors de l'utilisation d'outils visuels, ne répéte JAMAIS le contenu.
+REGLE D'OR: lors de l'utilisation d'outils visuels, ne répéte JAMAIS le contenu même pas un peu.
 
 RECHERCHE WEB:
 - Si infos actuelles nécessaires uniquement
