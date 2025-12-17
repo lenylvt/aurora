@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { getSessionJWT } from "@/lib/appwrite/client";
-import { Loader2, Plus, Trash2, CheckCircle2, Circle } from "lucide-react";
+import { Loader2, Plus, Trash2, CheckCircle2, Circle, Sparkles } from "lucide-react";
 
 interface Toolkit {
   id: string;
@@ -124,71 +124,92 @@ export default function ConnectionsTab() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center p-8">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="flex h-full min-h-[300px] items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Chargement...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full p-6 sm:p-8 space-y-6 overflow-auto">
-      <div>
-        <h2 className="text-xl font-semibold">Connexions</h2>
-        <p className="text-sm text-muted-foreground">Services connectés à Aurora</p>
+    <div className="mx-auto max-w-lg px-6 py-8 space-y-8">
+      {/* Header style chat welcome */}
+      <div className="space-y-1">
+        <h2 className="text-2xl font-bold">Connexions</h2>
+        <p className="text-muted-foreground">Services connectés à Aurora</p>
       </div>
 
       {toolkits.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">
-          <p>Aucun service disponible</p>
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
+            <Sparkles className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <p className="text-muted-foreground">Aucun service disponible</p>
+          <p className="text-sm text-muted-foreground/70 mt-1">
+            Les intégrations seront bientôt disponibles
+          </p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {toolkits.map((toolkit) => (
+        <div className="space-y-3">
+          {toolkits.map((toolkit, index) => (
             <div
               key={toolkit.id}
-              className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors"
+              className="group flex items-center gap-4 p-4 rounded-2xl bg-muted/50 hover:bg-muted transition-all duration-200 fade-in animate-in"
+              style={{ animationDelay: `${index * 50}ms` }}
             >
-              {/* Status indicator */}
-              {toolkit.isConnected ? (
-                <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-              ) : toolkit.hasAuthConfig ? (
-                <Circle className="h-4 w-4 text-muted-foreground shrink-0" />
-              ) : (
-                <CheckCircle2 className="h-4 w-4 text-muted-foreground shrink-0" />
-              )}
+              {/* Status indicator avec cercle */}
+              <div className={`flex h-10 w-10 items-center justify-center rounded-full ${toolkit.isConnected
+                  ? "bg-green-500/10"
+                  : "bg-background"
+                }`}>
+                {toolkit.isConnected ? (
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                ) : toolkit.hasAuthConfig ? (
+                  <Circle className="h-5 w-5 text-muted-foreground" />
+                ) : (
+                  <CheckCircle2 className="h-5 w-5 text-muted-foreground/50" />
+                )}
+              </div>
 
               {/* Info */}
               <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{toolkit.name}</p>
-                <p className="text-xs text-muted-foreground truncate">{toolkit.description}</p>
+                <p className="font-semibold truncate">{toolkit.name}</p>
+                <p className="text-sm text-muted-foreground truncate">{toolkit.description}</p>
               </div>
 
-              {/* Action */}
+              {/* Action button */}
               {toolkit.isConnected ? (
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  className="shrink-0 rounded-full h-9 w-9 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                   onClick={() => handleDisconnect(toolkit)}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
               ) : toolkit.hasAuthConfig ? (
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  className="shrink-0"
+                  className="shrink-0 rounded-full h-9 px-4"
                   onClick={() => handleConnect(toolkit)}
                   disabled={connectingToolkit === toolkit.id}
                 >
                   {connectingToolkit === toolkit.id ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Plus className="h-4 w-4" />
+                    <>
+                      <Plus className="h-4 w-4 mr-1" />
+                      Connecter
+                    </>
                   )}
                 </Button>
               ) : (
-                <span className="text-xs text-muted-foreground shrink-0">Prêt</span>
+                <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
+                  Prêt
+                </span>
               )}
             </div>
           ))}

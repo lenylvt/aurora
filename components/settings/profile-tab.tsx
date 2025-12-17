@@ -40,15 +40,18 @@ export default function ProfileTab() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center p-8">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="flex h-full min-h-[300px] items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Chargement...</p>
+        </div>
       </div>
     );
   }
 
   if (!userData) {
     return (
-      <div className="flex h-full items-center justify-center p-8">
+      <div className="flex h-full min-h-[300px] items-center justify-center">
         <p className="text-muted-foreground">Impossible de charger les données</p>
       </div>
     );
@@ -57,35 +60,42 @@ export default function ProfileTab() {
   const isSnapchatAccount = userData.email.startsWith("snapchat");
 
   return (
-    <div className="h-full p-6 sm:p-8 space-y-6 overflow-auto">
-      <div>
-        <h2 className="text-xl font-semibold">Profil</h2>
-        <p className="text-sm text-muted-foreground">Vos informations de compte</p>
+    <div className="mx-auto max-w-lg px-6 py-8 space-y-8">
+      {/* Header style chat welcome */}
+      <div className="space-y-1">
+        <h2 className="text-2xl font-bold">Profil</h2>
+        <p className="text-muted-foreground">Vos informations de compte</p>
       </div>
 
-      {/* Informations utilisateur */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-          <User className="h-4 w-4 text-muted-foreground shrink-0" />
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">Nom</p>
-            <p className="font-medium truncate">{userData.name}</p>
+      {/* Info cards avec design moderne */}
+      <div className="space-y-3">
+        <div className="group flex items-center gap-4 p-4 rounded-2xl bg-muted/50 hover:bg-muted transition-colors">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background">
+            <User className="h-5 w-5 text-muted-foreground" />
           </div>
-        </div>
-
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-          <Link2 className="h-4 w-4 text-muted-foreground shrink-0" />
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-muted-foreground">Connexion avec</p>
-            <p className="font-medium truncate">{isSnapchatAccount ? "Snapchat" : userData.email}</p>
+            <p className="text-xs text-muted-foreground font-medium">Nom</p>
+            <p className="font-semibold truncate">{userData.name}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-          <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">Membre depuis</p>
-            <p className="font-medium">
+        <div className="group flex items-center gap-4 p-4 rounded-2xl bg-muted/50 hover:bg-muted transition-colors">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background">
+            <Link2 className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-muted-foreground font-medium">Connexion avec</p>
+            <p className="font-semibold truncate">{isSnapchatAccount ? "Snapchat" : userData.email}</p>
+          </div>
+        </div>
+
+        <div className="group flex items-center gap-4 p-4 rounded-2xl bg-muted/50 hover:bg-muted transition-colors">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background">
+            <Calendar className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-muted-foreground font-medium">Membre depuis</p>
+            <p className="font-semibold">
               {new Date(userData.registration).toLocaleDateString("fr-FR", {
                 year: "numeric",
                 month: "long",
@@ -96,26 +106,24 @@ export default function ProfileTab() {
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="pt-2 space-y-2">
+      {/* Actions avec buttons arrondis */}
+      <div className="space-y-2 pt-4 border-t">
         {!isSnapchatAccount && (
           <Button
             variant="outline"
-            size="sm"
-            className="w-full justify-start"
+            className="w-full justify-start h-12 rounded-xl"
             onClick={() => toast.info("Fonctionnalité à venir")}
           >
-            <KeyRound className="h-4 w-4 mr-2" />
+            <KeyRound className="h-4 w-4 mr-3" />
             Modifier le mot de passe
           </Button>
         )}
         <Button
           variant="ghost"
-          size="sm"
-          className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+          className="w-full justify-start h-12 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
           onClick={() => toast.info("Fonctionnalité à venir")}
         >
-          <Trash2 className="h-4 w-4 mr-2" />
+          <Trash2 className="h-4 w-4 mr-3" />
           Supprimer le compte
         </Button>
       </div>
