@@ -31,7 +31,7 @@ export async function generateConversationTitle(userMessage: string): Promise<st
         messages: [
           {
             role: "system",
-            content: "Create a title of this message in 3-6 words maximum. Reply ONLY with the title, without quotes, without final period. Must be in message language (French). Your don't create a response.",
+            content: "Create a title of this message in 3-6 words maximum. Reply ONLY with the title, without quotes, without final period. Must be in message language (French). Your not creating a response, just a title, don't try to create a response. Summarize what the user said in 3-6 words maximum.",
           },
           {
             role: "user",
