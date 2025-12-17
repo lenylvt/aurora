@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { signIn } from "@/lib/appwrite/client";
+import { signIn, getCurrentUser } from "@/lib/appwrite/client";
 import { StarLogo } from "@/components/ui/star-logo";
 
 function LoginForm() {
@@ -16,6 +16,25 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [snapchatLoading, setSnapchatLoading] = useState(false);
   const [error, setError] = useState("");
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // Vérifier si l'utilisateur est déjà connecté
+  useEffect(() => {
+    const checkExistingSession = async () => {
+      try {
+        const user = await getCurrentUser();
+        if (user) {
+          // Utilisateur déjà connecté, rediriger vers /chat
+          router.replace("/chat");
+          return;
+        }
+      } catch (error) {
+        // Pas de session active, c'est normal
+      }
+      setCheckingAuth(false);
+    };
+    checkExistingSession();
+  }, [router]);
 
   useEffect(() => {
     const snapchatAuth = searchParams.get("snapchat_auth");
@@ -85,6 +104,19 @@ function LoginForm() {
     setSnapchatLoading(true);
     window.location.href = "/api/auth/snapchat";
   };
+
+  // Afficher un loader pendant la vérification de session
+  if (checkingAuth) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+        <div className="flex flex-col items-center space-y-4">
+          <StarLogo size={64} className="text-foreground animate-pulse" />
+          <h1 className="text-3xl font-bold tracking-tight">Aurora</h1>
+          <p className="text-muted-foreground">Vérification...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">

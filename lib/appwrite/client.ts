@@ -54,6 +54,24 @@ export function clearJWTCache() {
 // Sign in with email
 export async function signIn(email: string, password: string) {
   try {
+    // Vérifier si une session existe déjà
+    try {
+      const existingUser = await account.get();
+      if (existingUser) {
+        // Une session existe déjà
+        if (existingUser.email === email) {
+          // C'est le même utilisateur, pas besoin de recréer une session
+          return { success: true, session: null, alreadyLoggedIn: true };
+        } else {
+          // C'est un utilisateur différent, déconnecter d'abord
+          await account.deleteSession("current");
+          clearJWTCache();
+        }
+      }
+    } catch {
+      // Pas de session active, c'est normal
+    }
+
     const session = await account.createEmailPasswordSession(email, password);
     return { success: true, session };
   } catch (error: any) {
