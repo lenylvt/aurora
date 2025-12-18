@@ -1,7 +1,7 @@
 // Mini Apps Types
 
 // Registered Mini Apps
-export type MiniAppId = "analyse-france";
+export type MiniAppId = "analyse-france" | "code";
 
 export interface MiniApp {
     id: MiniAppId;
@@ -127,5 +127,12 @@ export const MINI_APPS: Record<MiniAppId, MiniApp> = {
         description: "Analyse linéaire de poèmes pour le BAC Français",
         icon: "BookOpen",
         color: "text-blue-500",
+    },
+    "code": {
+        id: "code",
+        name: "Code",
+        description: "IDE en ligne avec exécution Python",
+        icon: "Code2",
+        color: "text-emerald-500",
     },
 };

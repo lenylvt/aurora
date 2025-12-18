@@ -11,6 +11,7 @@ import { MINI_APPS, type MiniAppId, type MiniAppSettings } from "@/types/miniapp
 export default function MiniAppsTab() {
     const [settings, setSettings] = useState<Record<MiniAppId, MiniAppSettings | null>>({
         "analyse-france": null,
+        "code": null,
     });
     const [loading, setLoading] = useState(true);
     const [userId, setUserId] = useState<string | null>(null);
@@ -30,6 +31,7 @@ export default function MiniAppsTab() {
             const allSettings = await getAllMiniAppSettings(user.$id);
             const settingsMap: Record<MiniAppId, MiniAppSettings | null> = {
                 "analyse-france": null,
+                "code": null,
             };
 
             for (const s of allSettings) {

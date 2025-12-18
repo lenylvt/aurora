@@ -11,19 +11,52 @@ import {
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { BookOpen, Sparkles } from "lucide-react";
+import { BookOpen, Code2, Sparkles, Play, FolderTree, Terminal } from "lucide-react";
 import { useState } from "react";
 import { useMiniApps } from "./miniapps-provider";
-import { MINI_APPS } from "@/types/miniapps";
+import { MINI_APPS, type MiniAppId } from "@/types/miniapps";
+
+// Features config per mini app
+const MINI_APP_FEATURES: Record<MiniAppId, { icon: React.ReactNode; features: string[] }> = {
+    "analyse-france": {
+        icon: <BookOpen className="w-6 h-6 text-blue-500" />,
+        features: [
+            "Sélection interactive des mots-clés",
+            "Analyses multiples par poème",
+            "Évaluation IA avec feedback détaillé",
+            "Sauvegarde automatique",
+            "Suivi de progression",
+        ],
+    },
+    "code": {
+        icon: <Code2 className="w-6 h-6 text-emerald-500" />,
+        features: [
+            "Éditeur de code avec coloration syntaxique",
+            "Gestion de fichiers dans la sidebar",
+            "Console intégrée pour la sortie",
+            "Exécution Python en temps réel",
+            "Raccourci ⌘↵ pour exécuter",
+        ],
+    },
+};
+
+// Icons for feature highlights
+const FEATURE_ICONS: Record<MiniAppId, React.ReactNode> = {
+    "analyse-france": <Sparkles className="w-4 h-4 text-yellow-500" />,
+    "code": <Terminal className="w-4 h-4 text-emerald-500" />,
+};
 
 export function WelcomePopup() {
-    const { showWelcomeFor, dismissWelcome, toggleSidebar, settings } = useMiniApps();
+    const { showWelcomeFor, dismissWelcome, toggleSidebar } = useMiniApps();
     const [showInSidebar, setShowInSidebar] = useState(true);
 
     if (!showWelcomeFor) return null;
 
     const miniApp = MINI_APPS[showWelcomeFor];
     if (!miniApp) return null;
+
+    const appConfig = MINI_APP_FEATURES[showWelcomeFor];
+    const featureIcon = FEATURE_ICONS[showWelcomeFor];
 
     const handleConfirm = async () => {
         // Update sidebar preference if changed
@@ -39,7 +72,7 @@ export function WelcomePopup() {
                 <DialogHeader>
                     <div className="flex items-center gap-3 mb-2">
                         <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                            <BookOpen className="w-6 h-6 text-primary" />
+                            {appConfig.icon}
                         </div>
                         <div>
                             <DialogTitle className="text-xl">{miniApp.name}</DialogTitle>
@@ -57,15 +90,13 @@ export function WelcomePopup() {
 
                     <div className="p-4 rounded-lg bg-muted/50 space-y-3">
                         <div className="flex items-center gap-2 text-sm">
-                            <Sparkles className="w-4 h-4 text-yellow-500" />
+                            {featureIcon}
                             <span className="font-medium">Fonctionnalités</span>
                         </div>
                         <ul className="text-sm text-muted-foreground space-y-2 ml-6">
-                            <li>• Sélection interactive des mots-clés</li>
-                            <li>• Analyses multiples par poème</li>
-                            <li>• Évaluation IA avec feedback détaillé</li>
-                            <li>• Sauvegarde automatique</li>
-                            <li>• Suivi de progression</li>
+                            {appConfig.features.map((feature, index) => (
+                                <li key={index}>• {feature}</li>
+                            ))}
                         </ul>
                     </div>
 
@@ -90,7 +121,11 @@ export function WelcomePopup() {
 
                 <DialogFooter>
                     <Button onClick={handleConfirm} className="w-full gap-2">
-                        <BookOpen className="w-4 h-4" />
+                        {showWelcomeFor === "code" ? (
+                            <Play className="w-4 h-4" />
+                        ) : (
+                            <BookOpen className="w-4 h-4" />
+                        )}
                         Commencer
                     </Button>
                 </DialogFooter>
@@ -98,3 +133,4 @@ export function WelcomePopup() {
         </Dialog>
     );
 }
+

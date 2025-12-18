@@ -32,7 +32,7 @@ import {
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
-import { MiniAppsProvider, WelcomePopup, useMiniApps } from "@/components/miniapps";
+import { MiniAppsProvider, WelcomePopup, useMiniApps, CodeMiniApp, CodeFilesProvider } from "@/components/miniapps";
 import AnalyseFrance from "@/components/miniapps/analyse-france";
 
 function HomeContentInner() {
@@ -183,6 +183,10 @@ function HomeContentInner() {
           <div className="flex-1 flex flex-col overflow-hidden">
             <AnalyseFrance />
           </div>
+        ) : activeMiniApp === "code" ? (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <CodeMiniApp />
+          </div>
         ) : (
           <>
             {/* Floating specialty selector under header */}
@@ -218,8 +222,10 @@ function HomeContent() {
     <SpecialtyProvider>
       <SidebarProvider>
         <MiniAppsProvider>
-          <WelcomePopup />
-          <HomeContentInner />
+          <CodeFilesProvider>
+            <WelcomePopup />
+            <HomeContentInner />
+          </CodeFilesProvider>
         </MiniAppsProvider>
       </SidebarProvider>
     </SpecialtyProvider>

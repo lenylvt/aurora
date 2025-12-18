@@ -51,6 +51,7 @@ export function MiniAppsProvider({ children }: MiniAppsProviderProps) {
     const [currentView, setCurrentView] = useState<MiniAppView>("main");
     const [settings, setSettings] = useState<Record<MiniAppId, MiniAppSettings | null>>({
         "analyse-france": null,
+        "code": null,
     });
     const [showWelcomeFor, setShowWelcomeFor] = useState<MiniAppId | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -71,6 +72,7 @@ export function MiniAppsProvider({ children }: MiniAppsProviderProps) {
                 const allSettings = await getAllMiniAppSettings(user.$id);
                 const settingsMap: Record<MiniAppId, MiniAppSettings | null> = {
                     "analyse-france": null,
+                    "code": null,
                 };
 
                 for (const s of allSettings) {

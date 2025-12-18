@@ -10,8 +10,7 @@ import {
   BookOpen,
   ChevronRight,
   ArrowLeft,
-  BarChart3,
-  FileEdit,
+  Code2,
 } from "lucide-react";
 import { NavUser } from "@/components/nav-user";
 import { StarLogo } from "@/components/ui/star-logo";
@@ -33,7 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import type { Chat, User } from "@/types";
 import { MINI_APPS, type MiniAppId } from "@/types/miniapps";
-import { useMiniApps } from "@/components/miniapps";
+import { useMiniApps, AnalyseFranceSidebar, CodeSidebar } from "@/components/miniapps";
 
 // Animation variants for sidebar content transitions
 const slideVariants = {
@@ -125,6 +124,17 @@ export function AppSidebar({
     return !settings || settings.showInSidebar;
   });
 
+  // Get icon for mini app
+  const getMiniAppIcon = (id: MiniAppId) => {
+    switch (id) {
+      case "code":
+        return <Code2 className="h-4 w-4" />;
+      case "analyse-france":
+      default:
+        return <BookOpen className="h-4 w-4" />;
+    }
+  };
+
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader className="py-2">
@@ -152,7 +162,7 @@ export function AppSidebar({
               transition={{ type: "tween", ease: "easeInOut", duration: 0.15 }}
               className="flex flex-col h-full"
             >
-              {/* Mini App Navigation */}
+              {/* Back button */}
               <SidebarGroup>
                 <SidebarGroupContent>
                   <Button
@@ -166,37 +176,9 @@ export function AppSidebar({
                 </SidebarGroupContent>
               </SidebarGroup>
 
-              {/* Mini App Title */}
-              <SidebarGroup>
-                <SidebarGroupLabel className="flex items-center gap-2">
-                  <BookOpen className="h-4 w-4" />
-                  {activeMiniAppConfig?.name}
-                </SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    <SidebarMenuItem>
-                      <SidebarMenuButton
-                        onClick={() => miniAppsContext?.setCurrentView("main")}
-                        isActive={miniAppsContext?.currentView === "main"}
-                        className="data-[active=true]:bg-sidebar-accent/50"
-                      >
-                        <FileEdit className="h-4 w-4" />
-                        <span>Analyser</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                      <SidebarMenuButton
-                        onClick={() => miniAppsContext?.setCurrentView("progress")}
-                        isActive={miniAppsContext?.currentView === "progress"}
-                        className="data-[active=true]:bg-sidebar-accent/50"
-                      >
-                        <BarChart3 className="h-4 w-4" />
-                        <span>Suivi</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
+              {/* Dynamic sidebar content per mini app */}
+              {activeMiniApp === "analyse-france" && <AnalyseFranceSidebar />}
+              {activeMiniApp === "code" && <CodeSidebar />}
             </motion.div>
           ) : (
             <motion.div
@@ -231,7 +213,7 @@ export function AppSidebar({
                           onClick={() => handleMiniAppClick(app.id)}
                           className="w-full justify-start h-9 gap-2 font-medium text-muted-foreground hover:text-foreground"
                         >
-                          <BookOpen className="h-4 w-4" />
+                          {getMiniAppIcon(app.id)}
                           <span>{app.name}</span>
                           <ChevronRight className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
