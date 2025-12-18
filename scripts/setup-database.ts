@@ -271,12 +271,107 @@ async function setupDatabase() {
     );
     console.log("    ✓ createdAt_index\n");
 
-    // 4. Afficher les IDs pour .env
+    // 4. Créer la collection 'mini_apps_settings'
+    console.log("📁 Création de la collection 'mini_apps_settings'...");
+    const settingsCollection = await databases.createCollection(
+      databaseId,
+      ID.unique(),
+      "mini_apps_settings",
+      [
+        Permission.read(Role.users()),
+        Permission.create(Role.users()),
+        Permission.update(Role.users()),
+        Permission.delete(Role.users()),
+      ],
+      false,
+      true
+    );
+    console.log(`✅ Collection 'mini_apps_settings' créée: ${settingsCollection.$id}`);
+
+    // Attributs pour 'mini_apps_settings'
+    console.log("  ➕ Ajout des attributs...");
+    await databases.createStringAttribute(
+      databaseId,
+      settingsCollection.$id,
+      "userId",
+      255,
+      true
+    );
+    console.log("    ✓ userId");
+
+    await databases.createStringAttribute(
+      databaseId,
+      settingsCollection.$id,
+      "miniAppId",
+      100,
+      true
+    );
+    console.log("    ✓ miniAppId");
+
+    await databases.createBooleanAttribute(
+      databaseId,
+      settingsCollection.$id,
+      "enabled",
+      false,
+      true // default: true
+    );
+    console.log("    ✓ enabled");
+
+    await databases.createBooleanAttribute(
+      databaseId,
+      settingsCollection.$id,
+      "showInSidebar",
+      false,
+      true // default: true
+    );
+    console.log("    ✓ showInSidebar");
+
+    await databases.createBooleanAttribute(
+      databaseId,
+      settingsCollection.$id,
+      "hasSeenWelcome",
+      false,
+      false // default: false
+    );
+    console.log("    ✓ hasSeenWelcome");
+
+    // Attendre que tous les attributs soient disponibles
+    await waitForAttributes(
+      databases,
+      databaseId,
+      settingsCollection.$id,
+      ["userId", "miniAppId", "enabled", "showInSidebar", "hasSeenWelcome"]
+    );
+
+    // Indexes pour 'mini_apps_settings'
+    console.log("  🔍 Création des indexes...");
+    await databases.createIndex(
+      databaseId,
+      settingsCollection.$id,
+      "userId_index",
+      IndexType.Key,
+      ["userId"],
+      ["ASC"]
+    );
+    console.log("    ✓ userId_index");
+
+    await databases.createIndex(
+      databaseId,
+      settingsCollection.$id,
+      "userId_miniAppId_index",
+      IndexType.Key,
+      ["userId", "miniAppId"],
+      ["ASC", "ASC"]
+    );
+    console.log("    ✓ userId_miniAppId_index\n");
+
+    // 5. Afficher les IDs pour .env
     console.log("🎉 Base de données configurée avec succès!\n");
     console.log("📋 IDs à ajouter dans votre fichier .env:\n");
     console.log(`NEXT_PUBLIC_DATABASE_ID=${databaseId}`);
     console.log(`NEXT_PUBLIC_CHATS_COLLECTION_ID=${chatsCollection.$id}`);
     console.log(`NEXT_PUBLIC_MESSAGES_COLLECTION_ID=${messagesCollection.$id}`);
+    console.log(`NEXT_PUBLIC_MINIAPPS_SETTINGS_COLLECTION_ID=${settingsCollection.$id}`);
     console.log("\n✨ Vous pouvez maintenant lancer l'application!\n");
   } catch (error: any) {
     console.error("❌ Erreur:", error.message);
@@ -288,3 +383,4 @@ async function setupDatabase() {
 }
 
 setupDatabase();
+

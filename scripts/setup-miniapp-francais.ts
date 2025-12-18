@@ -1,10 +1,10 @@
 /**
- * Script pour initialiser la base de données Mini Apps (Appwrite)
+ * Script pour initialiser la base de données Mini App Français (Analyse Linéaire)
  *
  * Usage:
  * 1. Créer une API Key dans Appwrite Console avec les permissions Database
  * 2. Exporter la clé: export APPWRITE_API_KEY=your_key_here
- * 3. Lancer: npx tsx scripts/setup-miniapps-database.ts
+ * 3. Lancer: npx tsx scripts/setup-miniapp-francais.ts
  */
 
 import { Client, Databases, ID, Permission, Role, IndexType } from "node-appwrite";
@@ -51,7 +51,7 @@ async function waitForAttributes(
     throw new Error("Timeout: Les attributs ne sont pas devenus disponibles");
 }
 
-async function setupMiniAppsDatabase() {
+async function setupMiniAppFrancais() {
     const apiKey = process.env.APPWRITE_API_KEY;
 
     if (!apiKey) {
@@ -84,14 +84,14 @@ async function setupMiniAppsDatabase() {
 
     const databases = new Databases(client);
 
-    console.log("🚀 Initialisation de la base de données Mini Apps...\n");
+    console.log("🚀 Initialisation de la base de données Mini App Français (Analyse Linéaire)...\n");
 
     try {
-        // 1. Create new database for Mini Apps
-        console.log("📦 Création de la database 'miniapps-db'...");
+        // 1. Create database for Mini App Français
+        console.log("📦 Création de la database 'miniapp-francais-db'...");
         const database = await databases.create(
             ID.unique(),
-            "miniapps-db",
+            "miniapp-francais-db",
             true // enabled
         );
         console.log(`✅ Database créée: ${database.$id}\n`);
@@ -99,101 +99,7 @@ async function setupMiniAppsDatabase() {
         const databaseId = database.$id;
 
         // ============================================
-        // 2. mini_apps_settings collection
-        // ============================================
-        console.log("📁 Création de la collection 'mini_apps_settings'...");
-        const settingsCollection = await databases.createCollection(
-            databaseId,
-            ID.unique(),
-            "mini_apps_settings",
-            [
-                Permission.read(Role.users()),
-                Permission.create(Role.users()),
-                Permission.update(Role.users()),
-                Permission.delete(Role.users()),
-            ],
-            false,
-            true
-        );
-        console.log(`✅ Collection créée: ${settingsCollection.$id}`);
-
-        console.log("  ➕ Ajout des attributs...");
-        await databases.createStringAttribute(
-            databaseId,
-            settingsCollection.$id,
-            "userId",
-            255,
-            true
-        );
-        console.log("    ✓ userId");
-
-        await databases.createStringAttribute(
-            databaseId,
-            settingsCollection.$id,
-            "miniAppId",
-            100,
-            true
-        );
-        console.log("    ✓ miniAppId");
-
-        await databases.createBooleanAttribute(
-            databaseId,
-            settingsCollection.$id,
-            "enabled",
-            false, // optional
-            true // default: true
-        );
-        console.log("    ✓ enabled");
-
-        await databases.createBooleanAttribute(
-            databaseId,
-            settingsCollection.$id,
-            "showInSidebar",
-            false, // optional
-            true // default: true
-        );
-        console.log("    ✓ showInSidebar");
-
-        await databases.createBooleanAttribute(
-            databaseId,
-            settingsCollection.$id,
-            "hasSeenWelcome",
-            false, // optional
-            false // default: false
-        );
-        console.log("    ✓ hasSeenWelcome");
-
-        await waitForAttributes(databases, databaseId, settingsCollection.$id, [
-            "userId",
-            "miniAppId",
-            "enabled",
-            "showInSidebar",
-            "hasSeenWelcome",
-        ]);
-
-        console.log("  🔍 Création des indexes...");
-        await databases.createIndex(
-            databaseId,
-            settingsCollection.$id,
-            "userId_index",
-            IndexType.Key,
-            ["userId"],
-            ["ASC"]
-        );
-        console.log("    ✓ userId_index");
-
-        await databases.createIndex(
-            databaseId,
-            settingsCollection.$id,
-            "userId_miniAppId_index",
-            IndexType.Key,
-            ["userId", "miniAppId"],
-            ["ASC", "ASC"]
-        );
-        console.log("    ✓ userId_miniAppId_index\n");
-
-        // ============================================
-        // 3. poems collection
+        // 2. poems collection
         // ============================================
         console.log("📁 Création de la collection 'poems'...");
         const poemsCollection = await databases.createCollection(
@@ -277,7 +183,7 @@ async function setupMiniAppsDatabase() {
         console.log("    ✓ author_index\n");
 
         // ============================================
-        // 4. user_analyses collection (in-progress analyses)
+        // 3. user_analyses collection (in-progress analyses)
         // ============================================
         console.log("📁 Création de la collection 'user_analyses'...");
         const analysesCollection = await databases.createCollection(
@@ -412,7 +318,7 @@ async function setupMiniAppsDatabase() {
         console.log("    ✓ completed_index\n");
 
         // ============================================
-        // 5. user_results collection (AI evaluations)
+        // 4. user_results collection (AI evaluations)
         // ============================================
         console.log("📁 Création de la collection 'user_results'...");
         const resultsCollection = await databases.createCollection(
@@ -548,17 +454,16 @@ async function setupMiniAppsDatabase() {
         console.log("    ✓ createdAt_index\n");
 
         // ============================================
-        // 6. Output .env values
+        // 5. Output .env values
         // ============================================
-        console.log("🎉 Base de données Mini Apps configurée avec succès!\n");
+        console.log("🎉 Base de données Mini App Français configurée avec succès!\n");
         console.log("📋 IDs à ajouter dans votre fichier .env:\n");
-        console.log(`NEXT_PUBLIC_MINIAPPS_DATABASE_ID=${databaseId}`);
-        console.log(`NEXT_PUBLIC_MINIAPPS_SETTINGS_COLLECTION_ID=${settingsCollection.$id}`);
+        console.log(`NEXT_PUBLIC_MINIAPP_FRANCAIS_DATABASE_ID=${databaseId}`);
         console.log(`NEXT_PUBLIC_POEMS_COLLECTION_ID=${poemsCollection.$id}`);
         console.log(`NEXT_PUBLIC_USER_ANALYSES_COLLECTION_ID=${analysesCollection.$id}`);
         console.log(`NEXT_PUBLIC_USER_RESULTS_COLLECTION_ID=${resultsCollection.$id}`);
         console.log(
-            "\n✨ Vous pouvez maintenant configurer les Mini Apps dans l'application!\n"
+            "\n✨ Vous pouvez maintenant utiliser l'Analyse Linéaire dans l'application!\n"
         );
     } catch (error: any) {
         console.error("❌ Erreur:", error.message);
@@ -569,4 +474,4 @@ async function setupMiniAppsDatabase() {
     }
 }
 
-setupMiniAppsDatabase();
+setupMiniAppFrancais();

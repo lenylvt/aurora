@@ -10,7 +10,7 @@ export async function getMiniAppSettings(
 ): Promise<MiniAppSettings | null> {
     try {
         const response = await databases.listDocuments(
-            miniappsConfig.databaseId,
+            miniappsConfig.settingsDatabaseId,
             miniappsConfig.collections.settings,
             [
                 Query.equal("userId", userId),
@@ -36,7 +36,7 @@ export async function getAllMiniAppSettings(
 ): Promise<MiniAppSettings[]> {
     try {
         const response = await databases.listDocuments(
-            miniappsConfig.databaseId,
+            miniappsConfig.settingsDatabaseId,
             miniappsConfig.collections.settings,
             [Query.equal("userId", userId), Query.limit(50)]
         );
@@ -61,7 +61,7 @@ export async function upsertMiniAppSettings(
         if (existing) {
             // Update existing
             const updated = await databases.updateDocument(
-                miniappsConfig.databaseId,
+                miniappsConfig.settingsDatabaseId,
                 miniappsConfig.collections.settings,
                 existing.$id,
                 updates
@@ -70,7 +70,7 @@ export async function upsertMiniAppSettings(
         } else {
             // Create new with defaults
             const created = await databases.createDocument(
-                miniappsConfig.databaseId,
+                miniappsConfig.settingsDatabaseId,
                 miniappsConfig.collections.settings,
                 ID.unique(),
                 {

@@ -27,7 +27,7 @@ function getAdminDatabases() {
 // Get config values directly
 function getConfig() {
     return {
-        databaseId: process.env.NEXT_PUBLIC_MINIAPPS_DATABASE_ID!,
+        databaseId: process.env.NEXT_PUBLIC_MINIAPP_FRANCAIS_DATABASE_ID!,
         resultsCollectionId: process.env.NEXT_PUBLIC_USER_RESULTS_COLLECTION_ID!,
     };
 }
