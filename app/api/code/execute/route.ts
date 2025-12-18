@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const PISTON_API_URL = "https://emkc.org/api/v2/piston/execute";
+// Support both public API and self-hosted Piston
+const PISTON_API_URL = process.env.PISTON_API_URL || "https://emkc.org/api/v2/piston/execute";
 
 interface ExecuteRequest {
     language: string;
     code: string;
-    stdin?: string; // Input for input() calls
+    stdin?: string;
+    args?: string[];
 }
 
 interface PistonResponse {
@@ -35,7 +37,7 @@ const LANGUAGE_VERSIONS: Record<string, string> = {
 export async function POST(request: NextRequest) {
     try {
         const body = (await request.json()) as ExecuteRequest;
-        const { language, code, stdin } = body;
+        const { language, code, stdin, args } = body;
 
         if (!code || !language) {
             return NextResponse.json(
@@ -46,7 +48,7 @@ export async function POST(request: NextRequest) {
 
         const version = LANGUAGE_VERSIONS[language] || "3.10.0";
 
-        // Call Piston API with stdin support
+        // Call Piston API with stdin and args support
         const response = await fetch(PISTON_API_URL, {
             method: "POST",
             headers: {
@@ -61,7 +63,9 @@ export async function POST(request: NextRequest) {
                         content: code,
                     },
                 ],
-                stdin: stdin || "", // Pass stdin for input() support
+                stdin: stdin || "",
+                args: args || [],
+                run_timeout: 10000, // 10 seconds max
             }),
         });
 
@@ -103,4 +107,3 @@ export async function POST(request: NextRequest) {
         );
     }
 }
-

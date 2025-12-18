@@ -1,0 +1,20 @@
+services:
+  piston:
+    image: lenylvt/piston-python:latest
+    container_name: piston
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "3829:2000"
+    tmpfs:
+      - /piston/jobs:exec,uid=1000,gid=1000,mode=711
+    volumes:
+      - piston_packages:/piston/packages
+    cgroup: host
+    environment:
+      # Augmente les timeouts (en ms)
+      - PISTON_RUN_TIMEOUT=300000
+      - PISTON_COMPILE_TIMEOUT=30000
+
+volumes:
+  piston_packages:

@@ -1,6 +1,8 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
+import { codeToHtml } from "shiki";
+import { useTheme } from "next-themes";
 
 interface CodeEditorProps {
     code: string;
@@ -11,6 +13,9 @@ interface CodeEditorProps {
 
 export function CodeEditor({ code, language, onChange, onRun }: CodeEditorProps) {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const highlightRef = useRef<HTMLDivElement>(null);
+    const [highlightedHtml, setHighlightedHtml] = useState<string>("");
+    const { resolvedTheme } = useTheme();
 
     // Handle keyboard shortcut for run (Cmd/Ctrl + Enter)
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -37,22 +42,39 @@ export function CodeEditor({ code, language, onChange, onRun }: CodeEditorProps)
         }
     };
 
-    // Auto-resize textarea
+    // Highlight code with Shiki
     useEffect(() => {
-        if (textareaRef.current) {
-            textareaRef.current.style.height = "auto";
-            textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
+        const theme = resolvedTheme === "dark" ? "github-dark" : "github-light";
+
+        codeToHtml(code || " ", {
+            lang: language === "python" ? "python" : "javascript",
+            theme,
+        })
+            .then((html) => {
+                setHighlightedHtml(html);
+            })
+            .catch((err) => {
+                console.error("[CodeEditor] Shiki error:", err);
+            });
+    }, [code, language, resolvedTheme]);
+
+    // Sync scroll between textarea and highlighted code
+    const handleScroll = useCallback(() => {
+        if (textareaRef.current && highlightRef.current) {
+            highlightRef.current.scrollTop = textareaRef.current.scrollTop;
+            highlightRef.current.scrollLeft = textareaRef.current.scrollLeft;
         }
-    }, [code]);
+    }, []);
 
     // Get line numbers
-    const lines = code.split("\n");
+    const lines = (code || "").split("\n");
     const lineNumbers = lines.map((_, i) => i + 1);
+    const isDark = resolvedTheme === "dark";
 
     return (
         <div className="h-full w-full flex bg-background font-mono text-sm overflow-hidden">
             {/* Line numbers */}
-            <div className="flex-shrink-0 bg-muted/30 border-r text-muted-foreground select-none py-3 px-2">
+            <div className="flex-shrink-0 bg-muted/30 border-r text-muted-foreground select-none py-3 px-2 overflow-hidden">
                 {lineNumbers.map((num) => (
                     <div
                         key={num}
@@ -64,22 +86,39 @@ export function CodeEditor({ code, language, onChange, onRun }: CodeEditorProps)
                 ))}
             </div>
 
-            {/* Editor */}
-            <div className="flex-1 overflow-auto">
+            {/* Editor area with overlay */}
+            <div className="flex-1 relative overflow-hidden">
+                {/* Highlighted code (background layer) */}
+                <div
+                    ref={highlightRef}
+                    className="absolute inset-0 p-3 overflow-auto pointer-events-none leading-6 [&_pre]:!bg-transparent [&_pre]:!p-0 [&_pre]:!m-0 [&_code]:!bg-transparent"
+                    style={{
+                        fontFamily:
+                            "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, monospace",
+                    }}
+                    dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+                />
+
+                {/* Textarea (foreground layer - transparent text, visible caret) */}
                 <textarea
                     ref={textareaRef}
                     value={code}
                     onChange={(e) => onChange(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    className="w-full h-full min-h-full p-3 bg-transparent resize-none outline-none leading-6 text-foreground"
+                    onScroll={handleScroll}
+                    className="absolute inset-0 w-full h-full p-3 bg-transparent resize-none outline-none leading-6 selection:bg-primary/30"
                     spellCheck={false}
                     autoCapitalize="off"
                     autoComplete="off"
                     autoCorrect="off"
                     placeholder="# Écrivez votre code Python ici..."
                     style={{
-                        fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, monospace",
+                        fontFamily:
+                            "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, monospace",
                         tabSize: 4,
+                        color: "transparent",
+                        caretColor: isDark ? "#fff" : "#000",
+                        WebkitTextFillColor: "transparent",
                     }}
                 />
             </div>

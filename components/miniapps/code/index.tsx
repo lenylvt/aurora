@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { useMiniApps } from "@/components/miniapps";
@@ -10,9 +10,23 @@ import { ConsolePanel } from "./console-panel";
 import { Toolbar } from "./toolbar";
 
 interface ConsoleOutput {
-    type: "stdout" | "stderr" | "info";
+    type: "stdout" | "stderr" | "info" | "stdin";
     content: string;
     timestamp: Date;
+}
+
+// Check if WebSocket is available
+async function checkWebSocketAvailable(): Promise<string | null> {
+    try {
+        const response = await fetch("/api/code/ws");
+        if (response.ok) {
+            const data = await response.json();
+            return data.pistonWsUrl || null;
+        }
+        return null;
+    } catch {
+        return null;
+    }
 }
 
 export default function CodeMiniApp() {
@@ -24,6 +38,28 @@ export default function CodeMiniApp() {
     const [isRunning, setIsRunning] = useState(false);
     const [stdin, setStdin] = useState("");
 
+    // WebSocket state
+    const [isInteractive, setIsInteractive] = useState(false);
+    const [waitingForInput, setWaitingForInput] = useState(false);
+    const [pistonWsUrl, setPistonWsUrl] = useState<string | null>(null);
+    const wsRef = useRef<WebSocket | null>(null);
+
+    // Check for WebSocket availability on mount
+    useEffect(() => {
+        checkWebSocketAvailable().then((url) => {
+            if (url) {
+                setPistonWsUrl(url);
+                setIsInteractive(true);
+            }
+        });
+
+        return () => {
+            if (wsRef.current) {
+                wsRef.current.close();
+            }
+        };
+    }, []);
+
     // Handle code change
     const handleCodeChange = useCallback((code: string) => {
         if (activeFile) {
@@ -31,8 +67,170 @@ export default function CodeMiniApp() {
         }
     }, [activeFile, updateFileContent]);
 
-    // Run code
-    const handleRun = useCallback(async () => {
+    // Run code with WebSocket (interactive mode)
+    const runInteractive = useCallback(() => {
+        if (!activeFile || !pistonWsUrl) return;
+
+        // Close existing connection
+        if (wsRef.current) {
+            wsRef.current.close();
+        }
+
+        setIsRunning(true);
+        setConsoleOutput((prev) => [
+            ...prev,
+            {
+                type: "info",
+                content: `▶ Exécution interactive de ${activeFile.name}...`,
+                timestamp: new Date(),
+            },
+        ]);
+
+        const ws = new WebSocket(pistonWsUrl);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+            // Send init message
+            ws.send(JSON.stringify({
+                type: "init",
+                language: "python",
+                version: "*",
+                files: [{ name: activeFile.name, content: activeFile.content }],
+            }));
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const msg = JSON.parse(event.data);
+
+                switch (msg.type) {
+                    case "runtime":
+                        setConsoleOutput((prev) => [
+                            ...prev,
+                            {
+                                type: "info",
+                                content: `Python ${msg.version}`,
+                                timestamp: new Date(),
+                            },
+                        ]);
+                        break;
+
+                    case "stage":
+                        if (msg.stage === "run") {
+                            setWaitingForInput(false);
+                        }
+                        break;
+
+                    case "data":
+                        if (msg.stream === "stdout") {
+                            setConsoleOutput((prev) => [
+                                ...prev,
+                                {
+                                    type: "stdout",
+                                    content: msg.data,
+                                    timestamp: new Date(),
+                                },
+                            ]);
+                            // Check if waiting for input (stdout ends with common prompts)
+                            const lastLine = msg.data.trim();
+                            if (lastLine.endsWith(":") || lastLine.endsWith("?") || lastLine.includes("input")) {
+                                setWaitingForInput(true);
+                            }
+                        } else if (msg.stream === "stderr") {
+                            // Filter out cgroup/isolate system errors
+                            const ignoredPatterns = [
+                                "cgroup",
+                                "isolate",
+                                "/sys/fs/",
+                                "memory.events",
+                                "No such file or directory"
+                            ];
+                            const shouldIgnore = ignoredPatterns.some(p =>
+                                msg.data.toLowerCase().includes(p.toLowerCase())
+                            );
+
+                            if (!shouldIgnore) {
+                                setConsoleOutput((prev) => [
+                                    ...prev,
+                                    {
+                                        type: "stderr",
+                                        content: msg.data,
+                                        timestamp: new Date(),
+                                    },
+                                ]);
+                            }
+                        }
+                        break;
+
+                    case "exit":
+                        setIsRunning(false);
+                        setWaitingForInput(false);
+                        setConsoleOutput((prev) => [
+                            ...prev,
+                            {
+                                type: "info",
+                                content: `✓ Terminé (code: ${msg.code || 0})`,
+                                timestamp: new Date(),
+                            },
+                        ]);
+                        break;
+
+                    case "error":
+                        setConsoleOutput((prev) => [
+                            ...prev,
+                            {
+                                type: "stderr",
+                                content: msg.message || "Erreur inconnue",
+                                timestamp: new Date(),
+                            },
+                        ]);
+                        break;
+                }
+            } catch (e) {
+                console.error("[WS] Parse error:", e);
+            }
+        };
+
+        ws.onerror = () => {
+            setConsoleOutput((prev) => [
+                ...prev,
+                {
+                    type: "stderr",
+                    content: "Erreur de connexion WebSocket",
+                    timestamp: new Date(),
+                },
+            ]);
+            setIsRunning(false);
+        };
+
+        ws.onclose = () => {
+            setIsRunning(false);
+            setWaitingForInput(false);
+        };
+    }, [activeFile, pistonWsUrl]);
+
+    // Send input via WebSocket
+    const handleSendInput = useCallback((input: string) => {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({
+                type: "data",
+                stream: "stdin",
+                data: input,
+            }));
+            setConsoleOutput((prev) => [
+                ...prev,
+                {
+                    type: "stdin",
+                    content: input.trim(),
+                    timestamp: new Date(),
+                },
+            ]);
+            setWaitingForInput(false);
+        }
+    }, []);
+
+    // Run code with REST API (batch mode)
+    const runBatch = useCallback(async () => {
         if (!activeFile || isRunning) return;
 
         setIsRunning(true);
@@ -52,7 +250,7 @@ export default function CodeMiniApp() {
                 body: JSON.stringify({
                     language: "python",
                     code: activeFile.content,
-                    stdin, // Pass stdin for input() support
+                    stdin,
                 }),
             });
 
@@ -61,33 +259,21 @@ export default function CodeMiniApp() {
             if (result.stdout) {
                 setConsoleOutput((prev) => [
                     ...prev,
-                    {
-                        type: "stdout",
-                        content: result.stdout,
-                        timestamp: new Date(),
-                    },
+                    { type: "stdout", content: result.stdout, timestamp: new Date() },
                 ]);
             }
 
             if (result.stderr) {
                 setConsoleOutput((prev) => [
                     ...prev,
-                    {
-                        type: "stderr",
-                        content: result.stderr,
-                        timestamp: new Date(),
-                    },
+                    { type: "stderr", content: result.stderr, timestamp: new Date() },
                 ]);
             }
 
             if (result.error) {
                 setConsoleOutput((prev) => [
                     ...prev,
-                    {
-                        type: "stderr",
-                        content: result.error,
-                        timestamp: new Date(),
-                    },
+                    { type: "stderr", content: result.error, timestamp: new Date() },
                 ]);
             }
         } catch (error) {
@@ -104,11 +290,46 @@ export default function CodeMiniApp() {
         }
     }, [activeFile, isRunning, stdin]);
 
+    // Main run handler
+    const handleRun = useCallback(() => {
+        if (isInteractive && pistonWsUrl) {
+            runInteractive();
+        } else {
+            runBatch();
+        }
+    }, [isInteractive, pistonWsUrl, runInteractive, runBatch]);
+
     const handleClearConsole = useCallback(() => {
         setConsoleOutput([]);
     }, []);
 
+    // Stop execution
+    const handleStop = useCallback(() => {
+        if (wsRef.current) {
+            // Send SIGKILL signal via WebSocket
+            wsRef.current.send(JSON.stringify({
+                type: "signal",
+                signal: "SIGKILL"
+            }));
+            wsRef.current.close();
+            wsRef.current = null;
+        }
+        setIsRunning(false);
+        setWaitingForInput(false);
+        setConsoleOutput((prev) => [
+            ...prev,
+            {
+                type: "info",
+                content: "⏹ Exécution arrêtée",
+                timestamp: new Date(),
+            },
+        ]);
+    }, []);
+
     const handleClose = useCallback(() => {
+        if (wsRef.current) {
+            wsRef.current.close();
+        }
         closeMiniApp();
     }, [closeMiniApp]);
 
@@ -135,7 +356,9 @@ export default function CodeMiniApp() {
                 fileName={activeFile?.name || ""}
                 isRunning={isRunning}
                 isSaving={isSaving}
+                isInteractive={isInteractive}
                 onRun={handleRun}
+                onStop={handleStop}
                 onClose={handleClose}
             />
 
@@ -158,6 +381,10 @@ export default function CodeMiniApp() {
                     onClear={handleClearConsole}
                     stdin={stdin}
                     onStdinChange={setStdin}
+                    code={activeFile?.content || ""}
+                    onSendInput={handleSendInput}
+                    isInteractive={isInteractive}
+                    waitingForInput={waitingForInput}
                 />
             </div>
         </motion.div>
