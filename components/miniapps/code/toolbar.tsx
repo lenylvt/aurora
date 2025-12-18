@@ -1,17 +1,18 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Play, X, FileCode2, Loader2 } from "lucide-react";
+import { Play, X, FileCode2, Loader2, Cloud, CloudOff } from "lucide-react";
 import { Kbd } from "@/components/ui/kbd";
 
 interface ToolbarProps {
     fileName: string;
     isRunning: boolean;
+    isSaving?: boolean;
     onRun: () => void;
     onClose: () => void;
 }
 
-export function Toolbar({ fileName, isRunning, onRun, onClose }: ToolbarProps) {
+export function Toolbar({ fileName, isRunning, isSaving, onRun, onClose }: ToolbarProps) {
     return (
         <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
             {/* Left: File info */}
@@ -19,6 +20,20 @@ export function Toolbar({ fileName, isRunning, onRun, onClose }: ToolbarProps) {
                 <div className="flex items-center gap-2 text-sm">
                     <FileCode2 className="h-4 w-4 text-emerald-500" />
                     <span className="font-medium">{fileName}</span>
+                </div>
+                {/* Save indicator */}
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    {isSaving ? (
+                        <>
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <span>Sauvegarde...</span>
+                        </>
+                    ) : (
+                        <>
+                            <Cloud className="h-3 w-3 text-emerald-500" />
+                            <span className="text-emerald-600">Sauvegardé</span>
+                        </>
+                    )}
                 </div>
             </div>
 

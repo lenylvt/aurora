@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
+import { Loader2 } from "lucide-react";
 import { useMiniApps } from "@/components/miniapps";
 import { useCodeFiles } from "./code-files-provider";
 import { CodeEditor } from "./code-editor";
@@ -16,11 +17,12 @@ interface ConsoleOutput {
 
 export default function CodeMiniApp() {
     const { closeMiniApp } = useMiniApps();
-    const { activeFile, updateFileContent } = useCodeFiles();
+    const { activeFile, updateFileContent, isLoading, isSaving } = useCodeFiles();
 
     // Console state
     const [consoleOutput, setConsoleOutput] = useState<ConsoleOutput[]>([]);
     const [isRunning, setIsRunning] = useState(false);
+    const [stdin, setStdin] = useState("");
 
     // Handle code change
     const handleCodeChange = useCallback((code: string) => {
@@ -50,6 +52,7 @@ export default function CodeMiniApp() {
                 body: JSON.stringify({
                     language: "python",
                     code: activeFile.content,
+                    stdin, // Pass stdin for input() support
                 }),
             });
 
@@ -99,7 +102,7 @@ export default function CodeMiniApp() {
         } finally {
             setIsRunning(false);
         }
-    }, [activeFile, isRunning]);
+    }, [activeFile, isRunning, stdin]);
 
     const handleClearConsole = useCallback(() => {
         setConsoleOutput([]);
@@ -108,6 +111,18 @@ export default function CodeMiniApp() {
     const handleClose = useCallback(() => {
         closeMiniApp();
     }, [closeMiniApp]);
+
+    // Loading state
+    if (isLoading) {
+        return (
+            <div className="flex h-full items-center justify-center bg-background">
+                <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+                    <p className="text-sm text-muted-foreground">Chargement des fichiers...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <motion.div
@@ -119,11 +134,12 @@ export default function CodeMiniApp() {
             <Toolbar
                 fileName={activeFile?.name || ""}
                 isRunning={isRunning}
+                isSaving={isSaving}
                 onRun={handleRun}
                 onClose={handleClose}
             />
 
-            {/* Editor + Console (no more file explorer) */}
+            {/* Editor + Console */}
             <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Code Editor */}
                 <div className="flex-1 overflow-hidden">
@@ -140,6 +156,8 @@ export default function CodeMiniApp() {
                     output={consoleOutput}
                     isRunning={isRunning}
                     onClear={handleClearConsole}
+                    stdin={stdin}
+                    onStdinChange={setStdin}
                 />
             </div>
         </motion.div>

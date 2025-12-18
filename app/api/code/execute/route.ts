@@ -5,6 +5,7 @@ const PISTON_API_URL = "https://emkc.org/api/v2/piston/execute";
 interface ExecuteRequest {
     language: string;
     code: string;
+    stdin?: string; // Input for input() calls
 }
 
 interface PistonResponse {
@@ -34,7 +35,7 @@ const LANGUAGE_VERSIONS: Record<string, string> = {
 export async function POST(request: NextRequest) {
     try {
         const body = (await request.json()) as ExecuteRequest;
-        const { language, code } = body;
+        const { language, code, stdin } = body;
 
         if (!code || !language) {
             return NextResponse.json(
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
 
         const version = LANGUAGE_VERSIONS[language] || "3.10.0";
 
-        // Call Piston API
+        // Call Piston API with stdin support
         const response = await fetch(PISTON_API_URL, {
             method: "POST",
             headers: {
@@ -60,6 +61,7 @@ export async function POST(request: NextRequest) {
                         content: code,
                     },
                 ],
+                stdin: stdin || "", // Pass stdin for input() support
             }),
         });
 
@@ -101,3 +103,4 @@ export async function POST(request: NextRequest) {
         );
     }
 }
+
