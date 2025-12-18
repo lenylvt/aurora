@@ -49,6 +49,7 @@ export const Thread: FC<ThreadProps> = ({ userName }) => {
         turnAnchor="bottom"
         className="aui-thread-viewport relative flex flex-1 flex-col overflow-y-scroll scroll-smooth px-4 pt-4 pb-32"
       >
+
         <AssistantIf condition={({ thread }) => thread.isEmpty}>
           <ThreadWelcome userName={userName} />
         </AssistantIf>

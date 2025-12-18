@@ -1,10 +1,10 @@
 "use client";
 
-import { Suspense, useState, useEffect, useCallback } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Thread } from "@/components/assistant-ui/thread";
 import { ChatRuntimeProvider } from "@/components/chat/runtime-provider";
-import { SpecialtyProvider } from "@/components/chat/specialty-provider";
+import { SpecialtyProvider, useSpecialty } from "@/components/chat/specialty-provider";
 import { SpecialtySelector } from "@/components/chat/specialty-selector";
 import { ToolkitsProvider } from "@/components/chat/toolkits-provider";
 import { AppSidebar } from "@/components/chat/app-sidebar";
@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 
-function ChatContent() {
+function ChatContentInner() {
   const router = useRouter();
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);
@@ -44,8 +44,6 @@ function ChatContent() {
   // État pour le settings dialog
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<"profile" | "connections">("profile");
-  // État pour tracker si le chat a des messages
-  const [hasMessages, setHasMessages] = useState(false);
 
   useEffect(() => {
     getCurrentUser().then((userData) => {
@@ -75,7 +73,6 @@ function ChatContent() {
   const handleNewChat = () => {
     setCurrentChatId(null);
     setLoadedMessages([]);
-    setHasMessages(false);
     // Forcer un nouveau provider pour reset le thread
     setConversationKey(Date.now());
   };
@@ -87,10 +84,8 @@ function ChatContent() {
       const result = await getChatMessages(chatId);
       if (result.success) {
         setLoadedMessages(result.messages);
-        setHasMessages(result.messages.length > 0);
       } else {
         setLoadedMessages([]);
-        setHasMessages(false);
       }
       // Forcer un nouveau provider pour charger la nouvelle conversation
       setConversationKey(Date.now());
@@ -105,7 +100,6 @@ function ChatContent() {
         // Reset to new conversation state
         setCurrentChatId(null);
         setLoadedMessages([]);
-        setHasMessages(false);
         setConversationKey(Date.now());
       }
       toast.success("Conversation supprimée");
@@ -127,82 +121,93 @@ function ChatContent() {
     setSettingsOpen(true);
   };
 
-  // Stable callback for message count changes
-  const handleMessagesChange = useCallback((count: number) => {
-    setHasMessages(count > 0);
-  }, []);
-
   // Trouver le titre du chat actuel
   const currentChat = currentChatId
     ? chats.find((c) => c.$id === currentChatId)
     : null;
 
+  // Use the specialty context to check if we should hide the selector
+  const { activeSpecialty } = useSpecialty();
+
+  // Hide selector if a chat has started and no specialty was chosen
+  const shouldHideSelector = currentChatId !== null && !activeSpecialty;
+
+  return (
+    <SidebarProvider>
+      <ToolkitsProvider>
+        <CommandMenu
+          chats={chats}
+          onNewChat={handleNewChat}
+          onChatSelect={handleChatSelect}
+          onOpenSettings={handleOpenSettings}
+        />
+        <SettingsDialog
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          defaultTab={settingsTab}
+        />
+        <AppSidebar
+          user={user}
+          chats={chats}
+          currentChatId={currentChatId || undefined}
+          onChatSelect={handleChatSelect}
+          onNewChat={handleNewChat}
+          onDeleteChat={handleDeleteChat}
+          onSignOut={handleSignOut}
+          isLoading={isLoadingChats}
+        />
+        <SidebarInset className="flex flex-col h-screen overflow-hidden">
+          {/* Header avec trigger et breadcrumb */}
+          <header className="flex h-14 shrink-0 items-center gap-2 border-b">
+            <div className="flex items-center w-full gap-2 px-4">
+              <SidebarTrigger className="-ml-1" />
+              <Separator
+                orientation="vertical"
+                className="mr-2 data-[orientation=vertical]:h-4"
+              />
+              <Breadcrumb>
+                <BreadcrumbList>
+                  <BreadcrumbItem>
+                    <BreadcrumbPage>
+                      {currentChat?.title || "Nouvelle conversation"}
+                    </BreadcrumbPage>
+                  </BreadcrumbItem>
+                </BreadcrumbList>
+              </Breadcrumb>
+            </div>
+          </header>
+
+          {/* Floating specialty selector under header */}
+          <div className="relative">
+            <SpecialtySelector
+              hidden={shouldHideSelector}
+              className="absolute left-4 top-2 z-10"
+            />
+          </div>
+
+          {/* Thread assistant-ui - key force le remontage */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <ChatRuntimeProvider
+              key={conversationKey}
+              currentChatId={currentChatId}
+              initialMessages={loadedMessages}
+              onChatCreated={handleChatCreated}
+            >
+              <ErrorBoundary>
+                <Thread userName={user?.name} />
+              </ErrorBoundary>
+            </ChatRuntimeProvider>
+          </div>
+        </SidebarInset>
+      </ToolkitsProvider>
+    </SidebarProvider>
+  );
+}
+
+function ChatContent() {
   return (
     <SpecialtyProvider>
-      <SidebarProvider>
-        <ToolkitsProvider>
-          <CommandMenu
-            chats={chats}
-            onNewChat={handleNewChat}
-            onChatSelect={handleChatSelect}
-            onOpenSettings={handleOpenSettings}
-          />
-          <SettingsDialog
-            open={settingsOpen}
-            onOpenChange={setSettingsOpen}
-            defaultTab={settingsTab}
-          />
-          <AppSidebar
-            user={user}
-            chats={chats}
-            currentChatId={currentChatId || undefined}
-            onChatSelect={handleChatSelect}
-            onNewChat={handleNewChat}
-            onDeleteChat={handleDeleteChat}
-            onSignOut={handleSignOut}
-            isLoading={isLoadingChats}
-          />
-          <SidebarInset className="flex flex-col h-screen overflow-hidden">
-            {/* Header avec trigger et breadcrumb */}
-            <header className="flex h-14 shrink-0 items-center gap-2 border-b">
-              <div className="flex items-center justify-between w-full gap-2 px-4">
-                <div className="flex items-center gap-2">
-                  <SidebarTrigger className="-ml-1" />
-                  <Separator
-                    orientation="vertical"
-                    className="mr-2 data-[orientation=vertical]:h-4"
-                  />
-                  <Breadcrumb>
-                    <BreadcrumbList>
-                      <BreadcrumbItem>
-                        <BreadcrumbPage>
-                          {currentChat?.title || "Nouvelle conversation"}
-                        </BreadcrumbPage>
-                      </BreadcrumbItem>
-                    </BreadcrumbList>
-                  </Breadcrumb>
-                </div>
-                <SpecialtySelector hasStartedChat={hasMessages} />
-              </div>
-            </header>
-
-            {/* Thread assistant-ui - key force le remontage */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <ChatRuntimeProvider
-                key={conversationKey}
-                currentChatId={currentChatId}
-                initialMessages={loadedMessages}
-                onChatCreated={handleChatCreated}
-                onMessagesChange={handleMessagesChange}
-              >
-                <ErrorBoundary>
-                  <Thread userName={user?.name} />
-                </ErrorBoundary>
-              </ChatRuntimeProvider>
-            </div>
-          </SidebarInset>
-        </ToolkitsProvider>
-      </SidebarProvider>
+      <ChatContentInner />
     </SpecialtyProvider>
   );
 }

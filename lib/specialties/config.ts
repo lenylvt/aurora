@@ -3,10 +3,13 @@
  * Each specialty defines a custom prompt and preferred tools
  */
 
+import type { LucideIcon } from "lucide-react";
+import { Languages } from "lucide-react";
+
 export interface SpecialtyConfig {
     id: string;
     name: string;
-    icon: string;
+    icon: LucideIcon;
     description: string;
     prompt: string;
     preferredTools: string[];
@@ -16,7 +19,7 @@ export const SPECIALTIES: Record<string, SpecialtyConfig> = {
     langue: {
         id: "langue",
         name: "Langue",
-        icon: "Globe",
+        icon: Languages,
         description: "Focus sur conjugaison, synonymes, antonymes",
         prompt: `
 === MODE SPÉCIALITÉ LANGUE ACTIVÉ ===

@@ -128,15 +128,13 @@ interface ChatRuntimeProviderProps {
   currentChatId?: string | null;
   initialMessages?: Message[];
   onChatCreated?: (chatId: string) => void;
-  onMessagesChange?: (count: number) => void;
 }
 
 export function ChatRuntimeProvider({
   children,
   currentChatId,
   initialMessages = [],
-  onChatCreated,
-  onMessagesChange
+  onChatCreated
 }: ChatRuntimeProviderProps) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -321,11 +319,10 @@ export function ChatRuntimeProvider({
       }
 
       lastMessageCountRef.current = chat.messages.length;
-      onMessagesChange?.(chat.messages.length);
     };
 
     syncNewMessages();
-  }, [chat.messages, user, onChatCreated, onMessagesChange]);
+  }, [chat.messages, user, onChatCreated]);
 
   if (!user) {
     return (
