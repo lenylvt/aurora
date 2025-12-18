@@ -25,7 +25,7 @@ function SignupForm() {
         const user = await getCurrentUser();
         if (user) {
           // Utilisateur déjà connecté, rediriger vers /chat
-          router.replace("/chat");
+          router.replace("/home");
           return;
         }
       } catch (error) {
@@ -44,7 +44,7 @@ function SignupForm() {
     const result = await signUp(email, password, name);
 
     if (result.success) {
-      router.push("/chat");
+      router.push("/home");
     } else {
       setError(result.error || "Erreur d'inscription");
     }

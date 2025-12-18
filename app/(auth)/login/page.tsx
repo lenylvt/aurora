@@ -25,7 +25,7 @@ function LoginForm() {
         const user = await getCurrentUser();
         if (user) {
           // Utilisateur déjà connecté, rediriger vers /chat
-          router.replace("/chat");
+          router.replace("/home");
           return;
         }
       } catch (error) {
@@ -67,7 +67,7 @@ function LoginForm() {
           if (data.success && data.email && data.password) {
             const result = await signIn(data.email, data.password);
             if (result.success) {
-              router.push("/chat");
+              router.push("/home");
             } else {
               setError("Échec de la création de session");
               setSnapchatLoading(false);
@@ -92,7 +92,7 @@ function LoginForm() {
     const result = await signIn(email, password);
 
     if (result.success) {
-      router.push("/chat");
+      router.push("/home");
     } else {
       setError(result.error || "Erreur de connexion");
     }

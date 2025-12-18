@@ -90,7 +90,7 @@ export default function AdminLayout({
                         s'agit d'une erreur.
                     </p>
                     <button
-                        onClick={() => router.push("/chat")}
+                        onClick={() => router.push("/home")}
                         className="text-primary underline hover:no-underline"
                     >
                         Retour à l'application

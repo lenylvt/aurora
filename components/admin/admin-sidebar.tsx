@@ -105,7 +105,7 @@ export function AdminSidebar({
                         <SidebarMenu>
                             <SidebarMenuItem>
                                 <SidebarMenuButton asChild>
-                                    <Link href="/chat" prefetch>
+                                    <Link href="/home" prefetch>
                                         <ArrowLeft className="h-4 w-4" />
                                         <span>Retour à Aurora</span>
                                     </Link>

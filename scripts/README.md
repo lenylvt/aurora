@@ -89,7 +89,48 @@ Pour tout supprimer et recommencer:
 3. Cliquer sur "Delete Database"
 4. Relancer le script
 
-### 📖 Plus d'infos
+---
+
+## 📚 Setup Mini Apps Database - Analyse France
+
+Ce script crée une **base de données séparée** pour les Mini Apps (Analyse France, etc.).
+
+### 📋 Ce qui sera créé
+
+1. **Database** `miniapps-db`
+2. **Collection** `mini_apps_settings` - Préférences utilisateur par mini app
+3. **Collection** `poems` - Poèmes pour l'analyse
+4. **Collection** `user_analyses` - Analyses en cours
+5. **Collection** `user_results` - Résultats des évaluations IA
+
+### ▶️ Exécuter le script
+
+```bash
+export APPWRITE_API_KEY=your_api_key_here
+npx tsx scripts/setup-miniapps-database.ts
+```
+
+### ✅ Copier les IDs dans .env
+
+```
+NEXT_PUBLIC_MINIAPPS_DATABASE_ID=xxx
+NEXT_PUBLIC_MINIAPPS_SETTINGS_COLLECTION_ID=xxx
+NEXT_PUBLIC_POEMS_COLLECTION_ID=xxx
+NEXT_PUBLIC_USER_ANALYSES_COLLECTION_ID=xxx
+NEXT_PUBLIC_USER_RESULTS_COLLECTION_ID=xxx
+```
+
+### 📝 Importer des poèmes
+
+Après l'exécution du script, ajouter des poèmes via la console Appwrite:
+- `title`: Titre du poème
+- `author`: Nom de l'auteur
+- `fullText`: Texte complet (strophes séparées par double saut de ligne)
+- `analyses`: (optionnel) Analyse markdown pré-remplie
+
+---
+
+## 📖 Plus d'infos
 
 - [Appwrite Databases](https://appwrite.io/docs/products/databases)
 - [Appwrite Permissions](https://appwrite.io/docs/products/databases/permissions)

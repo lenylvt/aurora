@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { User, Link2 } from "lucide-react";
+import { User, Link2, Puzzle } from "lucide-react";
 import ConnectionsTab from "./connections-tab";
 import ProfileTab from "./profile-tab";
+import MiniAppsTab from "./miniapps-tab";
 
-type Tab = "profile" | "connections";
+type Tab = "profile" | "connections" | "miniapps";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -28,6 +29,7 @@ export function SettingsDialog({ open, onOpenChange, defaultTab = "profile" }: S
   const tabs = [
     { id: "profile" as Tab, label: "Profil", icon: User },
     { id: "connections" as Tab, label: "Connexions", icon: Link2 },
+    { id: "miniapps" as Tab, label: "Mini Apps", icon: Puzzle },
   ];
 
   return (
@@ -71,8 +73,15 @@ export function SettingsDialog({ open, onOpenChange, defaultTab = "profile" }: S
           )}>
             <ConnectionsTab />
           </div>
+          <div className={cn(
+            "fade-in animate-in duration-200",
+            activeTab === "miniapps" ? "block" : "hidden"
+          )}>
+            <MiniAppsTab />
+          </div>
         </div>
       </DialogContent>
     </Dialog>
   );
 }
+

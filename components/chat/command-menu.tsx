@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import {
-  Command,
   CommandDialog,
   CommandEmpty,
   CommandGroup,
@@ -16,14 +15,17 @@ import {
   MessageSquareIcon,
   UserIcon,
   LinkIcon,
+  BookOpen,
 } from "lucide-react";
 import type { Chat } from "@/types";
+import { MINI_APPS, type MiniAppId } from "@/types/miniapps";
 
 interface CommandMenuProps {
   chats: Chat[];
   onNewChat: () => void;
   onChatSelect: (chatId: string) => void;
   onOpenSettings: (tab: "profile" | "connections") => void;
+  onOpenMiniApp?: (id: MiniAppId) => void;
 }
 
 export function CommandMenu({
@@ -31,6 +33,7 @@ export function CommandMenu({
   onNewChat,
   onChatSelect,
   onOpenSettings,
+  onOpenMiniApp,
 }: CommandMenuProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -60,8 +63,18 @@ export function CommandMenu({
     setOpen(false);
   };
 
+  const handleOpenMiniApp = (id: MiniAppId) => {
+    if (onOpenMiniApp) {
+      onOpenMiniApp(id);
+    }
+    setOpen(false);
+  };
+
   // Prendre les 5 chats les plus récents
   const recentChats = chats.slice(0, 5);
+
+  // Get all mini apps
+  const miniApps = Object.values(MINI_APPS);
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
@@ -75,6 +88,24 @@ export function CommandMenu({
             <span>Nouvelle conversation</span>
           </CommandItem>
         </CommandGroup>
+
+        {/* Mini Apps Section */}
+        {miniApps.length > 0 && onOpenMiniApp && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading="Mini Apps">
+              {miniApps.map((app) => (
+                <CommandItem
+                  key={app.id}
+                  onSelect={() => handleOpenMiniApp(app.id)}
+                >
+                  <BookOpen className="mr-2 h-4 w-4 text-primary" />
+                  <span>{app.name}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </>
+        )}
 
         {recentChats.length > 0 && (
           <>

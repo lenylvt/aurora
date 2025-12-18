@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     const error = searchParams.get("error");
     console.log(`[Composio Callback] Status: ${status}, Error: ${error || 'none'}`);
 
-    const redirectUrl = new URL("/chat", process.env.NEXT_PUBLIC_APP_URL);
+    const redirectUrl = new URL("/home", process.env.NEXT_PUBLIC_APP_URL);
 
     if (status === "success") {
       redirectUrl.searchParams.set("success", "true");

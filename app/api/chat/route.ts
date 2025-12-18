@@ -715,6 +715,7 @@ Interdit absolu: tableaux markdown pipe, images markdown exclamation crochets, b
 Exemple bon: appeler show_table puis répondre "Voici les données demandées"
 Exemple mauvais: appeler show_table puis ajouter tableau markdown ou répéter données texte
 Les outils affichent automatiquement en haut message. Ne jamais dupliquer.
+Règle d'OR: NE JAMAIS répéter données déjà affichées par outil, je JAMAIS essayer de réafficher plusieurs fois les mêmes données.
 
 RECHERCHE WEB
 Uniquement si informations actuelles nécessaires manquantes après cutoff janvier 2025

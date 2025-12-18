@@ -7,7 +7,7 @@ import { ChatRuntimeProvider } from "@/components/chat/runtime-provider";
 import { SpecialtyProvider, useSpecialty } from "@/components/chat/specialty-provider";
 import { SpecialtySelector } from "@/components/chat/specialty-selector";
 import { ToolkitsProvider } from "@/components/chat/toolkits-provider";
-import { AppSidebar } from "@/components/chat/app-sidebar";
+import { AppSidebar } from "@/components/app-sidebar";
 import { CommandMenu } from "@/components/chat/command-menu";
 import { SettingsDialog } from "@/components/settings/settings-dialog";
 import { getCurrentUser, signOut } from "@/lib/appwrite/client";
@@ -17,6 +17,7 @@ import {
   getChatMessages,
 } from "@/lib/appwrite/database";
 import type { Chat, User, Message } from "@/types";
+import { MINI_APPS } from "@/types/miniapps";
 import { toast } from "sonner";
 import {
   SidebarProvider,
@@ -31,19 +32,26 @@ import {
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { MiniAppsProvider, WelcomePopup, useMiniApps } from "@/components/miniapps";
+import AnalyseFrance from "@/components/miniapps/analyse-france";
 
-function ChatContentInner() {
+function HomeContentInner() {
   const router = useRouter();
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [loadedMessages, setLoadedMessages] = useState<Message[]>([]);
   const [isLoadingChats, setIsLoadingChats] = useState(true);
-  // Clé unique pour forcer le remontage du ChatRuntimeProvider
   const [conversationKey, setConversationKey] = useState<number>(Date.now());
-  // État pour le settings dialog
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<"profile" | "connections">("profile");
+
+  // Mini Apps context
+  const { activeMiniApp, openMiniApp } = useMiniApps();
+  const activeMiniAppConfig = activeMiniApp ? MINI_APPS[activeMiniApp] : null;
+
+  // Use the specialty context
+  const { activeSpecialty } = useSpecialty();
 
   useEffect(() => {
     getCurrentUser().then((userData) => {
@@ -73,21 +81,18 @@ function ChatContentInner() {
   const handleNewChat = () => {
     setCurrentChatId(null);
     setLoadedMessages([]);
-    // Forcer un nouveau provider pour reset le thread
     setConversationKey(Date.now());
   };
 
   const handleChatSelect = async (chatId: string) => {
     if (chatId !== currentChatId) {
       setCurrentChatId(chatId);
-      // Charger les messages existants
       const result = await getChatMessages(chatId);
       if (result.success) {
         setLoadedMessages(result.messages);
       } else {
         setLoadedMessages([]);
       }
-      // Forcer un nouveau provider pour charger la nouvelle conversation
       setConversationKey(Date.now());
     }
   };
@@ -97,7 +102,6 @@ function ChatContentInner() {
     if (result.success) {
       setChats((prev) => prev.filter((c) => c.$id !== chatId));
       if (currentChatId === chatId) {
-        // Reset to new conversation state
         setCurrentChatId(null);
         setLoadedMessages([]);
         setConversationKey(Date.now());
@@ -110,7 +114,6 @@ function ChatContentInner() {
 
   const handleChatCreated = async (chatId: string) => {
     setCurrentChatId(chatId);
-    // Recharger la liste des chats
     if (user) {
       await loadChats(user.$id);
     }
@@ -121,98 +124,109 @@ function ChatContentInner() {
     setSettingsOpen(true);
   };
 
-  // Trouver le titre du chat actuel
   const currentChat = currentChatId
     ? chats.find((c) => c.$id === currentChatId)
     : null;
 
-  // Use the specialty context to check if we should hide the selector
-  const { activeSpecialty } = useSpecialty();
-
-  // Hide selector if a chat has started and no specialty was chosen
   const shouldHideSelector = currentChatId !== null && !activeSpecialty;
 
+  // Determine header title
+  const headerTitle = activeMiniAppConfig
+    ? activeMiniAppConfig.name
+    : currentChat?.title || "Nouvelle conversation";
+
   return (
-    <SidebarProvider>
-      <ToolkitsProvider>
-        <CommandMenu
-          chats={chats}
-          onNewChat={handleNewChat}
-          onChatSelect={handleChatSelect}
-          onOpenSettings={handleOpenSettings}
-        />
-        <SettingsDialog
-          open={settingsOpen}
-          onOpenChange={setSettingsOpen}
-          defaultTab={settingsTab}
-        />
-        <AppSidebar
-          user={user}
-          chats={chats}
-          currentChatId={currentChatId || undefined}
-          onChatSelect={handleChatSelect}
-          onNewChat={handleNewChat}
-          onDeleteChat={handleDeleteChat}
-          onSignOut={handleSignOut}
-          isLoading={isLoadingChats}
-        />
-        <SidebarInset className="flex flex-col h-screen overflow-hidden">
-          {/* Header avec trigger et breadcrumb */}
-          <header className="flex h-14 shrink-0 items-center gap-2 border-b">
-            <div className="flex items-center w-full gap-2 px-4">
-              <SidebarTrigger className="-ml-1" />
-              <Separator
-                orientation="vertical"
-                className="mr-2 data-[orientation=vertical]:h-4"
-              />
-              <Breadcrumb>
-                <BreadcrumbList>
-                  <BreadcrumbItem>
-                    <BreadcrumbPage>
-                      {currentChat?.title || "Nouvelle conversation"}
-                    </BreadcrumbPage>
-                  </BreadcrumbItem>
-                </BreadcrumbList>
-              </Breadcrumb>
-            </div>
-          </header>
-
-          {/* Floating specialty selector under header */}
-          <div className="relative">
-            <SpecialtySelector
-              hidden={shouldHideSelector}
-              className="absolute left-4 top-2 z-10"
+    <ToolkitsProvider>
+      <CommandMenu
+        chats={chats}
+        onNewChat={handleNewChat}
+        onChatSelect={handleChatSelect}
+        onOpenSettings={handleOpenSettings}
+        onOpenMiniApp={openMiniApp}
+      />
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        defaultTab={settingsTab}
+      />
+      <AppSidebar
+        user={user}
+        chats={chats}
+        currentChatId={currentChatId || undefined}
+        onChatSelect={handleChatSelect}
+        onNewChat={handleNewChat}
+        onDeleteChat={handleDeleteChat}
+        onSignOut={handleSignOut}
+        isLoading={isLoadingChats}
+      />
+      <SidebarInset className="flex flex-col h-screen overflow-hidden">
+        {/* Header */}
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b">
+          <div className="flex items-center w-full gap-2 px-4">
+            <SidebarTrigger className="-ml-1" />
+            <Separator
+              orientation="vertical"
+              className="mr-2 data-[orientation=vertical]:h-4"
             />
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{headerTitle}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
           </div>
+        </header>
 
-          {/* Thread assistant-ui - key force le remontage */}
+        {/* Main content - switches between chat and mini app */}
+        {activeMiniApp === "analyse-france" ? (
           <div className="flex-1 flex flex-col overflow-hidden">
-            <ChatRuntimeProvider
-              key={conversationKey}
-              currentChatId={currentChatId}
-              initialMessages={loadedMessages}
-              onChatCreated={handleChatCreated}
-            >
-              <ErrorBoundary>
-                <Thread userName={user?.name} />
-              </ErrorBoundary>
-            </ChatRuntimeProvider>
+            <AnalyseFrance />
           </div>
-        </SidebarInset>
-      </ToolkitsProvider>
-    </SidebarProvider>
+        ) : (
+          <>
+            {/* Floating specialty selector under header */}
+            <div className="relative">
+              <SpecialtySelector
+                hidden={shouldHideSelector}
+                className="absolute left-4 top-2 z-10"
+              />
+            </div>
+
+            {/* Thread */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <ChatRuntimeProvider
+                key={conversationKey}
+                currentChatId={currentChatId}
+                initialMessages={loadedMessages}
+                onChatCreated={handleChatCreated}
+              >
+                <ErrorBoundary>
+                  <Thread userName={user?.name} />
+                </ErrorBoundary>
+              </ChatRuntimeProvider>
+            </div>
+          </>
+        )}
+      </SidebarInset>
+    </ToolkitsProvider>
   );
 }
 
-function ChatContent() {
+function HomeContent() {
   return (
     <SpecialtyProvider>
-      <ChatContentInner />
+      <SidebarProvider>
+        <MiniAppsProvider>
+          <WelcomePopup />
+          <HomeContentInner />
+        </MiniAppsProvider>
+      </SidebarProvider>
     </SpecialtyProvider>
   );
 }
 
-export default function ChatPage() {
+export default function HomePage() {
   return (
     <Suspense
       fallback={
@@ -224,7 +238,7 @@ export default function ChatPage() {
         </div>
       }
     >
-      <ChatContent />
+      <HomeContent />
     </Suspense>
   );
 }
