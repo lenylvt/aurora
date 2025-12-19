@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { useMiniApps } from "@/components/miniapps";
 import { useCodeFiles } from "./code-files-provider";
 import { CodeEditor } from "./code-editor";
 import { ConsolePanel } from "./console-panel";
 import { Toolbar } from "./toolbar";
+import { ProfPanel } from "./prof-panel";
+import { useSidebar } from "@/components/ui/sidebar";
 
 interface ConsoleOutput {
     type: "stdout" | "stderr" | "info" | "stdin";
@@ -37,6 +39,10 @@ export default function CodeMiniApp() {
     const [consoleOutput, setConsoleOutput] = useState<ConsoleOutput[]>([]);
     const [isRunning, setIsRunning] = useState(false);
     const [stdin, setStdin] = useState("");
+
+    // Prof panel state
+    const [isProfOpen, setIsProfOpen] = useState(false);
+    const { setOpen: setSidebarOpen, open: isSidebarOpen } = useSidebar();
 
     // WebSocket state
     const [isInteractive, setIsInteractive] = useState(false);
@@ -333,6 +339,38 @@ export default function CodeMiniApp() {
         closeMiniApp();
     }, [closeMiniApp]);
 
+    // Toggle Prof panel - close sidebar when opening Prof
+    const handleToggleProf = useCallback(() => {
+        if (!isProfOpen) {
+            // Opening Prof - close sidebar first, then open Prof
+            if (isSidebarOpen) {
+                setSidebarOpen(false);
+            }
+            setIsProfOpen(true);
+        } else {
+            // Closing Prof
+            setIsProfOpen(false);
+        }
+    }, [isProfOpen, isSidebarOpen, setSidebarOpen]);
+
+    // Track previous sidebar state to detect when user opens sidebar
+    const prevSidebarOpenRef = useRef(isSidebarOpen);
+    useEffect(() => {
+        // If sidebar just opened and Prof is open, close Prof (deferred)
+        if (isSidebarOpen && !prevSidebarOpenRef.current && isProfOpen) {
+            // Use setTimeout to avoid setState during render
+            setTimeout(() => setIsProfOpen(false), 0);
+        }
+        prevSidebarOpenRef.current = isSidebarOpen;
+    }, [isSidebarOpen, isProfOpen]);
+
+    // Handle applying code from Prof
+    const handleApplyCode = useCallback((newCode: string) => {
+        if (activeFile) {
+            updateFileContent(activeFile.id, newCode);
+        }
+    }, [activeFile, updateFileContent]);
+
     // Loading state
     if (isLoading) {
         return (
@@ -349,44 +387,70 @@ export default function CodeMiniApp() {
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex h-full flex-col bg-background overflow-hidden"
+            className="flex h-full flex-row bg-background overflow-hidden"
         >
-            {/* Toolbar */}
-            <Toolbar
-                fileName={activeFile?.name || ""}
-                isRunning={isRunning}
-                isSaving={isSaving}
-                isInteractive={isInteractive}
-                onRun={handleRun}
-                onStop={handleStop}
-                onClose={handleClose}
-            />
-
-            {/* Editor + Console */}
+            {/* Main content area */}
             <div className="flex-1 flex flex-col overflow-hidden">
-                {/* Code Editor */}
-                <div className="flex-1 overflow-hidden">
-                    <CodeEditor
+                {/* Toolbar */}
+                <Toolbar
+                    fileName={activeFile?.name || ""}
+                    isRunning={isRunning}
+                    isSaving={isSaving}
+                    isInteractive={isInteractive}
+                    isProfOpen={isProfOpen}
+                    onRun={handleRun}
+                    onStop={handleStop}
+                    onClose={handleClose}
+                    onToggleProf={handleToggleProf}
+                />
+
+                {/* Editor + Console */}
+                <div className="flex-1 flex flex-col overflow-hidden">
+                    {/* Code Editor */}
+                    <div className="flex-1 overflow-hidden">
+                        <CodeEditor
+                            code={activeFile?.content || ""}
+                            language={activeFile?.language || "python"}
+                            onChange={handleCodeChange}
+                            onRun={handleRun}
+                        />
+                    </div>
+
+                    {/* Console */}
+                    <ConsolePanel
+                        output={consoleOutput}
+                        isRunning={isRunning}
+                        onClear={handleClearConsole}
+                        stdin={stdin}
+                        onStdinChange={setStdin}
                         code={activeFile?.content || ""}
-                        language={activeFile?.language || "python"}
-                        onChange={handleCodeChange}
-                        onRun={handleRun}
+                        onSendInput={handleSendInput}
+                        isInteractive={isInteractive}
+                        waitingForInput={waitingForInput}
                     />
                 </div>
-
-                {/* Console */}
-                <ConsolePanel
-                    output={consoleOutput}
-                    isRunning={isRunning}
-                    onClear={handleClearConsole}
-                    stdin={stdin}
-                    onStdinChange={setStdin}
-                    code={activeFile?.content || ""}
-                    onSendInput={handleSendInput}
-                    isInteractive={isInteractive}
-                    waitingForInput={waitingForInput}
-                />
             </div>
+
+            {/* Prof Panel */}
+            <AnimatePresence>
+                {isProfOpen && (
+                    <motion.div
+                        initial={{ width: 0, opacity: 0 }}
+                        animate={{ width: 360, opacity: 1 }}
+                        exit={{ width: 0, opacity: 0 }}
+                        transition={{ type: "tween", ease: "easeInOut", duration: 0.2 }}
+                        className="h-full overflow-hidden"
+                    >
+                        <ProfPanel
+                            code={activeFile?.content || ""}
+                            fileName={activeFile?.name || ""}
+                            consoleOutput={consoleOutput.map((o) => o.content)}
+                            onApplyCode={handleApplyCode}
+                            onClose={() => setIsProfOpen(false)}
+                        />
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </motion.div>
     );
 }
