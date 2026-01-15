@@ -84,7 +84,7 @@ Analyse: ${a.analysis}
 
         // Call OpenRouter via Vercel AI SDK
         const result = await generateText({
-            model: openrouter("tngtech/deepseek-r1t2-chimera:free"),
+            model: openrouter("tngtech/deepseek-r1t2-chimera:free") as any,
             system: EVALUATION_PROMPT,
             prompt: userContent,
             temperature: 0.3,

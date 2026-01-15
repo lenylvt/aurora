@@ -1,13 +1,44 @@
 import { NextRequest } from "next/server";
 import { streamText, type CoreMessage } from "ai";
 import { groq } from "@ai-sdk/groq";
+import { xai } from "@ai-sdk/xai";
 import { getCurrentUserServer } from "@/lib/appwrite/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-// Model to use for Prof
-const MODEL = "openai/gpt-oss-120b";
+// AI Provider configuration
+type ProviderType = "xai" | "groq";
+
+interface ModelConfig {
+  provider: ProviderType;
+  model: string;
+}
+
+// Check if xAI is available
+const isXAIAvailable = () => !!process.env.XAI_API_KEY;
+
+// Model selection: prefer xAI Grok 4.1 Fast Non-Reasoning for code tutoring, fallback to Groq
+const getModelConfig = (): ModelConfig => {
+  if (isXAIAvailable()) {
+    console.log("[Prof API] Using xAI Grok 4.1 Fast Non-Reasoning");
+    return { provider: "xai", model: "grok-4-1-fast-non-reasoning" };
+  }
+  console.log("[Prof API] Using Groq gpt-oss-120b");
+  return { provider: "groq", model: "openai/gpt-oss-120b" };
+};
+
+// Get provider instance
+const getProviderInstance = (config: ModelConfig) => {
+  switch (config.provider) {
+    case "xai":
+      return xai(config.model);
+    case "groq":
+      return groq(config.model);
+    default:
+      throw new Error(`Unknown provider: ${config.provider}`);
+  }
+};
 
 interface SimpleMessage {
     role: "user" | "assistant";
@@ -103,9 +134,15 @@ Exemple CORRECT de modification (quand demandée):
             content: m.content,
         }));
 
+        // Get model configuration (xAI if available, Groq as fallback)
+        const modelConfig = getModelConfig();
+        const modelInstance = getProviderInstance(modelConfig);
+
+        console.log(`[Prof API] Provider: ${modelConfig.provider}, Model: ${modelConfig.model}`);
+
         // Stream the response
         const result = streamText({
-            model: groq(MODEL),
+            model: modelInstance,
             system: systemPrompt,
             messages: coreMessages,
             temperature: 0.7,

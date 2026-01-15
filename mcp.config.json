@@ -1,15 +1,6 @@
 {
-    "toolkits": [
-        {
-            "id": "gemini",
-            "name": "Gemini",
-            "toolkit": "GEMINI",
-            "description": "Génération d'images et de vidéos",
-            "enabled": true,
-            "allowedTools": [ "GEMINI_GENERATE_IMAGE", "GEMINI_GENERATE_VIDEOS", "GEMINI_GET_VIDEOS_OPERATION", "GEMINI_WAIT_FOR_VIDEO" ]
-        }
-    ],
-    "mcpServers": { 
+    "toolkits": [],
+    "mcpServers": {
         "file-creator": {
             "id": "file-creator",
             "name": "File Creator",

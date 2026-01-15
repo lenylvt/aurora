@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { streamText, convertToModelMessages, stepCountIs, tool, type UIMessage } from "ai";
 import { z } from "zod";
 import { groq } from "@ai-sdk/groq";
+import { xai } from "@ai-sdk/xai";
 import { getCurrentUserServer } from "@/lib/appwrite/server";
 import { getComposioTools, isComposioAvailable } from "@/lib/composio/client";
 import { getEnabledToolkitSlugs, getAllowedToolsForToolkits } from "@/lib/composio/config";
@@ -20,15 +21,57 @@ interface ChatRequest {
   specialty?: string | null;
 }
 
-// Fallback chain: try each model in order
-const MODELS = [
-  "openai/gpt-oss-120b",
-  "qwen/qwen3-32b",
-  "openai/gpt-oss-20b",
+// AI Provider configuration
+type ProviderType = "xai" | "groq";
+
+interface ModelConfig {
+  provider: ProviderType;
+  model: string;
+  supportsVision?: boolean;
+}
+
+// Check if xAI is available
+const isXAIAvailable = () => !!process.env.XAI_API_KEY;
+
+// Model configurations with multi-provider support
+// NOTE: ONLY using user-specified models - no Grok 2, 3, or 4
+const XAI_MODELS: ModelConfig[] = [
+  { provider: "xai", model: "grok-4-1-fast-reasoning", supportsVision: true }, // Primary: Fast, vision, reasoning, tool calling
 ] as const;
 
-// Vision model for images
-const VISION_MODEL = "meta-llama/llama-4-maverick-17b-128e-instruct";
+const GROQ_MODELS: ModelConfig[] = [
+  { provider: "groq", model: "openai/gpt-oss-120b", supportsVision: false },
+  { provider: "groq", model: "qwen/qwen3-32b", supportsVision: false },
+  { provider: "groq", model: "openai/gpt-oss-20b", supportsVision: false },
+] as const;
+
+const GROQ_VISION_MODEL: ModelConfig = {
+  provider: "groq",
+  model: "meta-llama/llama-4-maverick-17b-128e-instruct",
+  supportsVision: true,
+};
+
+// Select models based on availability: prefer xAI if available, fallback to Groq
+const getAvailableModels = (): ModelConfig[] => {
+  if (isXAIAvailable()) {
+    console.log("[Chat API] xAI available, using Grok models with Groq fallback");
+    return [...XAI_MODELS, ...GROQ_MODELS];
+  }
+  console.log("[Chat API] xAI not available, using Groq only");
+  return GROQ_MODELS;
+};
+
+// Get provider instance
+const getProviderInstance = (config: ModelConfig) => {
+  switch (config.provider) {
+    case "xai":
+      return xai(config.model);
+    case "groq":
+      return groq(config.model);
+    default:
+      throw new Error(`Unknown provider: ${config.provider}`);
+  }
+};
 
 // Helper to recursively remove reasoning from messages (not supported by vision model)
 function removeReasoning(obj: any): any {
@@ -641,6 +684,49 @@ export async function POST(req: NextRequest) {
       console.log(`[Chat API] Reverso not available`);
     }
 
+    // Add xAI image generation tool (only if xAI is available)
+    if (isXAIAvailable()) {
+      tools.generer_image = tool({
+        description: "Génère une image avec Grok 2 Image. Utilise ce tool pour créer des images, illustrations, ou visuels basés sur une description en français ou anglais.",
+        inputSchema: z.object({
+          prompt: z.string().describe("Description détaillée de l'image à générer (en français ou anglais)"),
+          title: z.string().optional().describe("Titre optionnel pour l'image"),
+        }),
+        execute: async ({ prompt, title }) => {
+          console.log(`[Image Generation] Generating image with xAI: "${prompt}"`);
+          try {
+            const { experimental_generateImage } = await import("ai");
+            const { xai } = await import("@ai-sdk/xai");
+
+            const { image } = await experimental_generateImage({
+              model: xai.image("grok-2-image-latest"),
+              prompt: prompt,
+            });
+
+            // Convert to data URL
+            const base64Image = image.base64;
+            const imageUrl = `data:image/png;base64,${base64Image}`;
+
+            console.log(`[Image Generation] ✓ Image generated successfully`);
+
+            return {
+              success: true,
+              imageUrl,
+              title: title || "Image générée par Grok 2",
+              prompt,
+            };
+          } catch (error: any) {
+            console.error("[Image Generation] ❌ Error:", error);
+            return {
+              success: false,
+              error: error.message || "Erreur lors de la génération de l'image",
+            };
+          }
+        },
+      });
+      console.log(`[Chat API] ✓ Added generer_image tool (xAI Grok 2 Image)`);
+    }
+
     // Select model based on whether we have images in the FULL conversation history
     // Check BEFORE optimization to ensure we detect images even if they were optimized out
     const containsImages = hasImages(messages);
@@ -657,8 +743,22 @@ export async function POST(req: NextRequest) {
       optimizedMessages = limitImages(optimizedMessages);
     }
 
-    const selectedModel = containsImages ? VISION_MODEL : MODELS[0];
-    console.log(`[Chat API] Model selected: ${selectedModel}`);
+    // Smart model selection: xAI models support vision, Groq needs separate vision model
+    const availableModels = getAvailableModels();
+    let selectedModelConfig: ModelConfig;
+
+    if (containsImages) {
+      // For images: use vision-capable model (xAI models support vision, Groq uses dedicated vision model)
+      const visionModel = availableModels.find(m => m.supportsVision);
+      selectedModelConfig = visionModel || GROQ_VISION_MODEL;
+      console.log(`[Chat API] Vision required - using ${selectedModelConfig.provider}/${selectedModelConfig.model}`);
+    } else {
+      // For text: use primary model (xAI Grok 4.1 Fast or Groq primary)
+      selectedModelConfig = availableModels[0];
+      console.log(`[Chat API] Text mode - using ${selectedModelConfig.provider}/${selectedModelConfig.model}`);
+    }
+
+    console.log(`[Chat API] Selected provider: ${selectedModelConfig.provider}, model: ${selectedModelConfig.model}`);
 
     // Convert messages to model messages format
     console.log(`[Chat API] Converting to model messages format...`);
@@ -755,12 +855,15 @@ Répétition contenu déjà affiché par outil
     }
 
     console.log(`[Chat API] System prompt length: ${systemPrompt.length} chars`);
-    console.log(`[Chat API] Starting stream with Groq...`);
+    console.log(`[Chat API] Starting stream with ${selectedModelConfig.provider}...`);
     const streamStartTime = Date.now();
+
+    // Get the appropriate provider instance (xAI or Groq)
+    const modelInstance = getProviderInstance(selectedModelConfig);
 
     // Stream the response using Vercel AI SDK
     const result = streamText({
-      model: groq(selectedModel),
+      model: modelInstance,
       system: systemPrompt,
       messages: modelMessages,
       tools: Object.keys(tools).length > 0 ? tools : undefined,

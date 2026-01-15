@@ -9,7 +9,7 @@ Aurora is an ultra-fast AI assistant built for students (high school audience), 
 **Tech Stack:**
 - **Framework**: Next.js 16 (App Router) with React 19
 - **UI**: Assistant UI (primary chat interface) + Shadcn UI components + Tailwind CSS
-- **AI**: Groq API with multi-model fallback + Vercel AI SDK for streaming
+- **AI**: xAI Grok API (primary) + Groq API (fallback) with multi-provider system + Vercel AI SDK for streaming
 - **Backend**: Appwrite (authentication + database)
 - **Tools**: Composio SDK for MCP integration (external tool access)
 - **OAuth**: Snapchat Login Kit (PKCE flow)
@@ -32,16 +32,34 @@ npm run lint
 
 ## Architecture
 
-### Multi-Model Fallback Chain
+### Multi-Provider System with Intelligent Fallback
 
-The chat API implements a 3-model fallback chain for maximum reliability (app/api/chat/route.ts:17-21):
+The chat API implements a **dual-provider system** (xAI + Groq) with automatic failover (app/api/chat/route.ts:24-75):
 
+**xAI Grok models (Primary, if XAI_API_KEY is set):**
+1. `grok-4-1-fast-reasoning` (primary, optimized for speed, native vision support, 2M context, extended reasoning)
+2. `grok-4-1-fast-non-reasoning` (fallback 1, 2M context, vision support)
+3. `grok-4-1-fast-non-reasoning-mini` (fallback 2, lightweight)
+
+**Groq models (Fallback or standalone):**
 1. `openai/gpt-oss-120b` (primary, most powerful)
 2. `qwen/qwen3-32b` (fallback 1)
 3. `openai/gpt-oss-20b` (fallback 2)
-4. `meta-llama/llama-4-scout-17b-16e-instruct` (vision model for images)
+4. `meta-llama/llama-4-maverick-17b-128e-instruct` (vision model for images)
 
-The API detects images in messages and automatically switches to the vision model when needed.
+**Smart model selection:**
+- Text conversations: Uses Grok 4.1 Fast Reasoning (xAI) or gpt-oss-120b (Groq)
+- Vision (images/PDFs): Uses Grok 4.1 Fast Reasoning (native vision) or dedicated Groq vision model
+- Code tutoring (Prof): Uses Grok 4.1 Fast Non-Reasoning (faster responses) or gpt-oss-120b (Groq)
+- Automatic fallback: If xAI unavailable or fails, falls back to Groq seamlessly
+
+**xAI exclusive features:**
+- 2M token context windows (15x larger than Groq's 128K)
+- X Search integration (real-time Twitter/X data access)
+- Server-side code execution
+- Native vision support (no separate model needed)
+
+See [XAI_INTEGRATION.md](./XAI_INTEGRATION.md) for detailed setup and usage.
 
 ### Context Optimization System
 
@@ -179,8 +197,11 @@ NEXT_PUBLIC_DATABASE_ID=<database_id>
 NEXT_PUBLIC_CHATS_COLLECTION_ID=chats
 NEXT_PUBLIC_MESSAGES_COLLECTION_ID=messages
 
-# Groq
+# Groq (required fallback)
 GROQ_API_KEY=<groq_api_key>
+
+# xAI (optional, recommended for 2M context + X Search)
+XAI_API_KEY=<xai_api_key>
 
 # Optional: Composio (for tools)
 COMPOSIO_API_KEY=<composio_key>
